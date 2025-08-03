@@ -1,4 +1,4 @@
-version: '3.8'
+version: "3.8"
 
 services:
   zookeeper:
@@ -18,8 +18,10 @@ services:
     environment:
       KAFKA_BROKER_ID: 1
       KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
-      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://localhost:9092
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+    depends_on:
+      - zookeeper
 
   postgres:
     image: postgres:15
@@ -32,6 +34,32 @@ services:
       POSTGRES_PASSWORD: 1q2w3e4r
     volumes:
       - postgres-data:/var/lib/postgresql/data
+
+  main-server:
+    build:
+      context: .
+      dockerfile: Dockerfile.main
+    container_name: main-server
+    ports:
+      - "8080:8080"
+    environment:
+      - DB_HOST=postgres
+      - KAFKA_BROKERS=kafka:9092
+    depends_on:
+      - postgres
+      - kafka
+
+  consumer:
+    build:
+      context: .
+      dockerfile: Dockerfile.consumer
+    container_name: consumer
+    environment:
+      - DB_HOST=postgres
+      - KAFKA_BROKERS=kafka:9092
+    depends_on:
+      - postgres
+      - kafka
 
 volumes:
   postgres-data:
