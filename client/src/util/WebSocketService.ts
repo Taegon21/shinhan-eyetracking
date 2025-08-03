@@ -1,8 +1,11 @@
+const websocketUrl = import.meta.env.VITE_WS_URL;
 class WebSocketService {
   private socket: WebSocket | null = null;
-  private url = "ws://localhost:8080/ws";
+  private url = websocketUrl;
 
   connect() {
+    console.log("WebSocketService initialized with URL:", websocketService.url);
+
     if (this.socket?.readyState === WebSocket.OPEN) {
       return;
     }

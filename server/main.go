@@ -8,6 +8,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"sync"
 	"time"
 
 	"github.com/gorilla/websocket"
@@ -22,11 +23,16 @@ type GazeData struct {
 }
 
 var (
-	db *sql.DB
-	upgrader = websocket.Upgrader{
+	db          *sql.DB
+	upgrader    = websocket.Upgrader{
 		CheckOrigin: func(r *http.Request) bool { return true },
 	}
 	kafkaWriter *kafka.Writer
+	
+	// 디바운스용 변수들
+	lastGazeData GazeData
+	dataChannel  = make(chan GazeData, 1000)
+	mu           sync.Mutex
 )
 
 func main() {
@@ -40,7 +46,7 @@ func main() {
 		Brokers:      []string{kafkaBrokers},
 		Topic:        "gaze-data",
 		Balancer:     &kafka.LeastBytes{},
-		BatchTimeout: 10 * time.Millisecond,
+		BatchTimeout: 100 * time.Millisecond,
 		BatchSize:    100,
 	})
 	defer kafkaWriter.Close()
@@ -51,11 +57,36 @@ func main() {
 
 	testKafkaConnection()
 
+	// 0.1초마다 데이터 전송하는 고루틴
+	go func() {
+		ticker := time.NewTicker(100 * time.Millisecond) // 0.1초
+		defer ticker.Stop()
+		
+		for range ticker.C {
+			mu.Lock()
+			if lastGazeData.X != 0 || lastGazeData.Y != 0 {
+				// 최신 데이터를 Kafka로 전송
+				sendToKafka(lastGazeData)
+				// 전송 후 초기화
+				lastGazeData = GazeData{}
+			}
+			mu.Unlock()
+		}
+	}()
+
+	// 1시간마다 오래된 데이터 정리
+	go func() {
+		ticker := time.NewTicker(1 * time.Hour)
+		for range ticker.C {
+			cleanOldData()
+		}
+	}()
+
 	http.HandleFunc("/ws", wsHandler)
 	http.HandleFunc("/data", dataHandler)
 	http.HandleFunc("/clear", clearDataHandler)
 
-	log.Println("✅ 서버 실행: http://localhost:8080/ws")
+	log.Println("✅ 서버 실행: http://localhost:8080")
 	log.Fatal(http.ListenAndServe(":8080", nil))
 }
 
@@ -119,9 +150,11 @@ func wsHandler(w http.ResponseWriter, r *http.Request) {
 			log.Printf("읽기 종료: %v", err)
 			break
 		}
-		log.Printf("📊 수신: x=%.2f, y=%.2f", gazeData.X, gazeData.Y)
 
-		go sendToKafka(gazeData)
+		// 최신 데이터로 업데이트 (0.1초마다 전송될 예정)
+		mu.Lock()
+		lastGazeData = gazeData
+		mu.Unlock()
 	}
 }
 
@@ -141,7 +174,7 @@ func sendToKafka(data GazeData) {
 	if err != nil {
 		log.Printf("⚠️ Kafka 전송 실패: %v", err)
 	} else {
-		log.Printf("📦 Kafka 전송 성공: %s", string(jsonData))
+		log.Printf("📦 Kafka 전송: x=%.2f, y=%.2f", data.X, data.Y)
 	}
 }
 
@@ -195,4 +228,13 @@ func clearDataHandler(w http.ResponseWriter, r *http.Request) {
 	})
 
 	log.Printf("🗑️ 삭제 완료: %d개 행", rowsAffected)
+}
+
+func cleanOldData() {
+    _, err := db.Exec("DELETE FROM gaze_data WHERE created_at < NOW() - INTERVAL '7 days'")
+    if err != nil {
+        log.Printf("❌ 데이터 정리 실패: %v", err)
+    } else {
+        log.Println("🗑️ 7일 이전 데이터 정리 완료")
+    }
 }
