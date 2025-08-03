@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"log"
 	"net/http"
+	"os"
 	"time"
 
 	"github.com/gorilla/websocket"
@@ -25,16 +26,23 @@ var (
 	upgrader = websocket.Upgrader{
 		CheckOrigin: func(r *http.Request) bool { return true },
 	}
+	kafkaWriter *kafka.Writer
+)
+
+func main() {
+	// 환경변수에서 Kafka 브로커 주소 가져오기
+	kafkaBrokers := os.Getenv("KAFKA_BROKERS")
+	if kafkaBrokers == "" {
+		kafkaBrokers = "localhost:9092"
+	}
+	
 	kafkaWriter = kafka.NewWriter(kafka.WriterConfig{
-		Brokers:      []string{"localhost:9092"},
+		Brokers:      []string{kafkaBrokers},
 		Topic:        "gaze-data",
 		Balancer:     &kafka.LeastBytes{},
 		BatchTimeout: 10 * time.Millisecond,
 		BatchSize:    100,
 	})
-)
-
-func main() {
 	defer kafkaWriter.Close()
 
 	// PostgreSQL 연결
@@ -53,7 +61,13 @@ func main() {
 
 func initDB() {
 	var err error
-	db, err = sql.Open("postgres", "host=localhost port=5432 user=admin password=1q2w3e4r dbname=eyetracking sslmode=disable")
+	dbHost := os.Getenv("DB_HOST")
+	if dbHost == "" {
+		dbHost = "localhost"
+	}
+	
+	connectionString := "host=" + dbHost + " port=5432 user=admin password=1q2w3e4r dbname=eyetracking sslmode=disable"
+	db, err = sql.Open("postgres", connectionString)
 	if err != nil {
 		log.Fatal("❌ DB 연결 실패:", err)
 	}

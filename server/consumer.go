@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"log"
+	"os"
 
 	"github.com/segmentio/kafka-go"
 	_ "github.com/lib/pq"
@@ -17,17 +18,30 @@ type GazeData struct {
 }
 
 func main() {
+	// 환경변수에서 DB 호스트 가져오기
+	dbHost := os.Getenv("DB_HOST")
+	if dbHost == "" {
+		dbHost = "localhost"
+	}
+
 	// PostgreSQL 연결
-	db, err := sql.Open("postgres", "host=localhost port=5432 user=admin password=1q2w3e4r dbname=eyetracking sslmode=disable")
+	connectionString := "host=" + dbHost + " port=5432 user=admin password=1q2w3e4r dbname=eyetracking sslmode=disable"
+	db, err := sql.Open("postgres", connectionString)
 	if err != nil {
 		log.Fatal("❌ DB 연결 실패:", err)
 	}
 	defer db.Close()
 	log.Println("✅ PostgreSQL 연결 완료")
 
+	// 환경변수에서 Kafka 브로커 주소 가져오기
+	kafkaBrokers := os.Getenv("KAFKA_BROKERS")
+	if kafkaBrokers == "" {
+		kafkaBrokers = "localhost:9092"
+	}
+
 	// Kafka Reader 설정
 	r := kafka.NewReader(kafka.ReaderConfig{
-		Brokers:     []string{"localhost:9092"},
+		Brokers:     []string{kafkaBrokers},
 		Topic:       "gaze-data",
 		GroupID:     "gaze-consumer-group",
 		StartOffset: kafka.LastOffset, // 최신 메시지만 수신
