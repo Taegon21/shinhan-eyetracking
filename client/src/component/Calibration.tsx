@@ -1,6 +1,5 @@
 import { useEffect, useRef, useState, type RefObject } from "react";
 import { useNavigate } from "react-router-dom";
-import { websocketService } from "../util/WebSocketService";
 import { generateShuffledPoints } from "../util/utilFunction";
 
 // webgazer 글로벌 변수 선언
@@ -32,10 +31,18 @@ const CalibrationDot = ({
   return (
     <div
       key={`dot-${index}`}
-      className="bg-blue-500 w-[30px] h-[30px] rounded-full absolute cursor-pointer z-50"
-      style={{ left: `${point.x}px`, top: `${point.y}px` }}
+      className="bg-gradient-to-r from-blue-800 to-purple-500 w-[40px] h-[40px] rounded-full absolute cursor-pointer z-50 shadow-2xl border-4 border-white animate-pulse hover:scale-110 transition-transform duration-200"
+      style={{
+        left: `${point.x - 20}px`,
+        top: `${point.y - 20}px`,
+        boxShadow: "0 0 20px rgba(59, 130, 246, 0.5)",
+      }}
       onClick={onClick}
-    />
+    >
+      <div className="w-full h-full rounded-full bg-blue-300 bg-opacity-30 flex items-center justify-center">
+        <div className="w-3 h-3 bg-white rounded-full"></div>
+      </div>
+    </div>
   );
 };
 
@@ -49,8 +56,12 @@ const Tracker = ({
   return (
     <div
       ref={trackerRef}
-      className="w-5 h-5 bg-red-500 rounded-full pointer-events-none absolute z-50"
-      style={{ display: visible ? "block" : "none" }}
+      className="w-6 h-6 bg-red-500 rounded-full pointer-events-none absolute z-50 shadow-lg border-2 border-white animate-pulse"
+      style={{
+        display: visible ? "block" : "none",
+        transform: "translate(-50%, -50%)",
+        boxShadow: "0 0 15px rgba(239, 68, 68, 0.6)",
+      }}
     ></div>
   );
 };
@@ -75,7 +86,12 @@ export default function CalibrationView({ onComplete }: CalibrationViewProps) {
     setClickCount(newCount);
 
     if (statusRef.current) {
-      statusRef.current.textContent = `🧠 학습 중: ${index + 1}번 점 클릭 (${newCount}/3)`;
+      statusRef.current.innerHTML = `
+        <div class="flex items-center space-x-2">
+          <div class="w-3 h-3 bg-blue-800 rounded-full animate-pulse"></div>
+          <span>🧠 학습 중: ${index + 1}번 점 (${newCount}/3)</span>
+        </div>
+      `;
     }
 
     if (newCount >= 3) {
@@ -84,36 +100,32 @@ export default function CalibrationView({ onComplete }: CalibrationViewProps) {
     }
   };
 
-  const startTrackingMode = () => {
-    setMode("tracking");
-    if (statusRef.current) statusRef.current.style.display = "none";
-
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    window.webgazer.setGazeListener((data: any) => {
-      if (data && trackerRef.current) {
-        trackerRef.current.style.left = `${data.x}px`;
-        trackerRef.current.style.top = `${data.y}px`;
-        websocketService.sendGazeData(data.x, data.y);
-      }
-    });
-  };
-
-  const handleComplete = () => {
-    if (onComplete) {
-      // CustomerView에서 호출된 경우 - 콜백 실행
-      // 카메라끄기
-
-      onComplete();
-    } else {
-      // 직접 /calibration 페이지로 접근한 경우 - 페이지 이동
-      navigate("/customer");
+  useEffect(() => {
+    if (
+      isCalibrationFinished &&
+      mode === "calibration" &&
+      points.length !== 0
+    ) {
+      setMode("tracking");
+      if (statusRef.current) statusRef.current.style.display = "none";
+      console.log("Calibration finished, starting tracking mode", points, mode);
     }
-  };
+  }, [isCalibrationFinished, mode, points]);
 
-  const goToEmployeeView = () => {
-    // EmployeeView로 이동 (새 탭)
-    window.open("/employee", "_blank");
-  };
+  // 트래킹 모드 시작 후 3초 후 자동 완료
+  useEffect(() => {
+    if (mode === "tracking") {
+      const autoCompleteTimer = setTimeout(() => {
+        if (onComplete) {
+          onComplete();
+        } else {
+          navigate("/customer");
+        }
+      }, 3000);
+
+      return () => clearTimeout(autoCompleteTimer);
+    }
+  }, [mode, onComplete, navigate]);
 
   useEffect(() => {
     const setup = async () => {
@@ -133,8 +145,36 @@ export default function CalibrationView({ onComplete }: CalibrationViewProps) {
   return (
     <div
       ref={containerRef}
-      className="w-full h-screen relative overflow-hidden bg-white"
+      className="w-full h-screen relative overflow-hidden bg-gradient-to-br from-blue-50 via-white to-purple-50"
     >
+      {/* 헤더 */}
+      {mode === "calibration" && (
+        <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 bg-white bg-opacity-90 backdrop-blur-sm p-4 rounded-2xl shadow-lg border border-gray-200 z-50">
+          <h1 className="text-2xl font-bold text-blue-300 mb-2">
+            👁️ Eye Tracking 캘리브레이션
+          </h1>
+          <p className="text-gray-600">
+            고객의 시선을 추적하기 위한 학습 중입니다.
+          </p>
+          <p className="text-gray-600">파란점을 3번씩 클릭해주세요.</p>
+          <div>
+            <div className="text-gray-600 text-sm mb-2">진행률</div>
+            <div className="w-32 bg-gray-200 rounded-full h-2">
+              <div
+                className="bg-gradient-to-r from-blue-800 to-purple-500 h-2 rounded-full transition-all duration-300"
+                style={{ width: `${(current / points.length) * 100}%` }}
+              ></div>
+            </div>
+            <div className="text-xs text-gray-500 mt-1">
+              {current} / {points.length} 완료
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 상태 표시 */}
+
+      {/* 캘리브레이션 점 */}
       {mode === "calibration" && currentPoint && (
         <CalibrationDot
           point={currentPoint}
@@ -145,72 +185,37 @@ export default function CalibrationView({ onComplete }: CalibrationViewProps) {
         />
       )}
 
+      {/* 트래커 */}
       <Tracker visible={mode === "tracking"} trackerRef={trackerRef} />
 
-      {isCalibrationFinished && mode === "calibration" && (
-        <div className="absolute top-5 left-5 z-50 space-y-3">
-          <button
-            onClick={startTrackingMode}
-            className="block text-lg px-4 py-2 bg-blue-500 text-white rounded shadow hover:bg-blue-600"
-          >
-            🎯 실전 모드 시작
-          </button>
-        </div>
-      )}
-
-      {/* 트래킹 모드에서 완료 옵션 */}
+      {/* 트래킹 모드 완료 화면 */}
       {mode === "tracking" && (
-        <div className="absolute top-5 left-5 z-50 space-y-3">
-          <div className="bg-green-100 border border-green-400 text-green-700 px-4 py-2 rounded">
-            ✅ 캘리브레이션 완료!
+        <div className="absolute inset-0 flex items-center justify-center  bg-opacity-50 p-8 z-50">
+          <div className="bg-white-800 rounded-2xl p-8 shadow-2xl text-center max-w-md mx-4">
+            <div className="text-6xl mb-4">✅</div>
+            <h2 className="text-2xl font-bold text-green-600 mb-4">
+              설정 완료!
+            </h2>
+            <p className="text-gray-600 mb-6">고객 화면으로 이동합니다...</p>
           </div>
-
-          {/* CustomerView에서 호출된 경우 */}
-          {onComplete && (
-            <button
-              onClick={handleComplete}
-              className="block text-lg px-4 py-2 bg-green-500 text-white rounded shadow hover:bg-green-600"
-            >
-              ✅ 완료하고 돌아가기
-            </button>
-          )}
-
-          {/* 직접 페이지 접근한 경우 */}
-          {!onComplete && (
-            <>
-              <button
-                onClick={handleComplete}
-                className="block text-lg px-4 py-2 bg-green-500 text-white rounded shadow hover:bg-green-600"
-              >
-                👤 고객 화면으로 이동
-              </button>
-              <button
-                onClick={goToEmployeeView}
-                className="block text-lg px-4 py-2 bg-purple-500 text-white rounded shadow hover:bg-purple-600"
-              >
-                👨‍💼 직원 화면 열기 (새 탭)
-              </button>
-              <button
-                onClick={() => {
-                  // 자동으로 고객 화면 이동 + 직원 화면 새 탭 열기
-                  goToEmployeeView();
-                  setTimeout(() => handleComplete(), 500);
-                }}
-                className="block text-lg px-4 py-2 bg-gradient-to-r from-blue-500 to-purple-500 text-white rounded shadow hover:from-blue-600 hover:to-purple-600"
-              >
-                🚀 시뮬레이션 시작
-              </button>
-            </>
-          )}
         </div>
       )}
 
-      <div
-        ref={statusRef}
-        className="absolute top-[60px] left-5 text-black text-base bg-white px-3 py-2 rounded z-50"
-      >
-        🧠 학습 중: 1번 점 클릭 (0/3)
-      </div>
+      {/* 진행률 표시 */}
+      {mode === "calibration" && (
+        <div className="absolute top-8 right-8 bg-white bg-opacity-90 backdrop-blur-sm p-4 rounded-2xl shadow-lg border border-gray-200 z-40">
+          <div className="text-gray-600 text-sm mb-2">진행률</div>
+          <div className="w-32 bg-gray-200 rounded-full h-2">
+            <div
+              className="bg-gradient-to-r from-blue-800 to-purple-500 h-2 rounded-full transition-all duration-300"
+              style={{ width: `${(current / points.length) * 100}%` }}
+            ></div>
+          </div>
+          <div className="text-xs text-gray-500 mt-1">
+            {current} / {points.length} 완료
+          </div>
+        </div>
+      )}
     </div>
   );
 }
