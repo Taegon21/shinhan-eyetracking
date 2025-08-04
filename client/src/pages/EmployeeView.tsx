@@ -226,11 +226,11 @@ export default function EmployeeView() {
         <div className="bg-white p-6 rounded-lg shadow mt-6">
           <h3 className="text-xl font-semibold mb-4">🖥️ 고객 화면 미러링</h3>
           <div className="border-2 border-gray-300 rounded">
-            <iframe
+            {/* <iframe
               src="/customer"
               className="w-full h-96 rounded"
               title="고객 화면 미러링"
-            />
+            /> */}
           </div>
           <p className="text-sm text-gray-600 mt-2">
             * 실제 환경에서는 고객 태블릿 화면이 실시간으로 미러링됩니다.

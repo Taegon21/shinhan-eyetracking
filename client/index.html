@@ -6,6 +6,14 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <link href="/src/style.css" rel="stylesheet" />
     <script src="https://webgazer.cs.brown.edu/webgazer.js"></script>
+    <script>
+      // WebGazer 로드 후 즉시 비디오 숨기기
+      window.addEventListener("load", function () {
+        if (window.webgazer) {
+          window.webgazer.showVideoPreview(false).showPredictionPoints(false);
+        }
+      });
+    </script>
 
     <title>Vite + React + TS</title>
   </head>

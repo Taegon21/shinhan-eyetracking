@@ -16,6 +16,10 @@ interface Point {
   y: number;
 }
 
+interface CalibrationViewProps {
+  onComplete?: () => void; // CustomerView에서 호출될 때 사용
+}
+
 const CalibrationDot = ({
   point,
   index,
@@ -51,7 +55,7 @@ const Tracker = ({
   );
 };
 
-export default function CalibrationView() {
+export default function CalibrationView({ onComplete }: CalibrationViewProps) {
   const navigate = useNavigate();
   const [points, setPoints] = useState<Point[]>([]);
   const [current, setCurrent] = useState(0);
@@ -94,9 +98,16 @@ export default function CalibrationView() {
     });
   };
 
-  const goToCustomerView = () => {
-    // 캘리브레이션 완료 후 CustomerView로 이동
-    navigate("/customer");
+  const handleComplete = () => {
+    if (onComplete) {
+      // CustomerView에서 호출된 경우 - 콜백 실행
+      // 카메라끄기
+
+      onComplete();
+    } else {
+      // 직접 /calibration 페이지로 접근한 경우 - 페이지 이동
+      navigate("/customer");
+    }
   };
 
   const goToEmployeeView = () => {
@@ -106,7 +117,12 @@ export default function CalibrationView() {
 
   useEffect(() => {
     const setup = async () => {
-      await window.webgazer.setRegression("ridge").begin();
+      if (!window.webgazer || !window.webgazer.isReady()) {
+        await window.webgazer.setRegression("ridge").begin();
+      }
+      // 비디오 피드 보이게 하기
+      window.webgazer.showVideoPreview(true).showPredictionPoints(true);
+
       setPoints(generateShuffledPoints(4, 4));
       setCurrent(0);
       setClickCount(0);
@@ -142,34 +158,50 @@ export default function CalibrationView() {
         </div>
       )}
 
-      {/* 트래킹 모드에서 추가 옵션 */}
+      {/* 트래킹 모드에서 완료 옵션 */}
       {mode === "tracking" && (
         <div className="absolute top-5 left-5 z-50 space-y-3">
           <div className="bg-green-100 border border-green-400 text-green-700 px-4 py-2 rounded">
             ✅ 캘리브레이션 완료!
           </div>
-          <button
-            onClick={goToCustomerView}
-            className="block text-lg px-4 py-2 bg-green-500 text-white rounded shadow hover:bg-green-600"
-          >
-            👤 고객 화면으로 이동
-          </button>
-          <button
-            onClick={goToEmployeeView}
-            className="block text-lg px-4 py-2 bg-purple-500 text-white rounded shadow hover:bg-purple-600"
-          >
-            👨‍💼 직원 화면 열기 (새 탭)
-          </button>
-          <button
-            onClick={() => {
-              // 자동으로 고객 화면 이동 + 직원 화면 새 탭 열기
-              goToEmployeeView();
-              setTimeout(() => goToCustomerView(), 500);
-            }}
-            className="block text-lg px-4 py-2 bg-gradient-to-r from-blue-500 to-purple-500 text-white rounded shadow hover:from-blue-600 hover:to-purple-600"
-          >
-            🚀 시뮬레이션 시작
-          </button>
+
+          {/* CustomerView에서 호출된 경우 */}
+          {onComplete && (
+            <button
+              onClick={handleComplete}
+              className="block text-lg px-4 py-2 bg-green-500 text-white rounded shadow hover:bg-green-600"
+            >
+              ✅ 완료하고 돌아가기
+            </button>
+          )}
+
+          {/* 직접 페이지 접근한 경우 */}
+          {!onComplete && (
+            <>
+              <button
+                onClick={handleComplete}
+                className="block text-lg px-4 py-2 bg-green-500 text-white rounded shadow hover:bg-green-600"
+              >
+                👤 고객 화면으로 이동
+              </button>
+              <button
+                onClick={goToEmployeeView}
+                className="block text-lg px-4 py-2 bg-purple-500 text-white rounded shadow hover:bg-purple-600"
+              >
+                👨‍💼 직원 화면 열기 (새 탭)
+              </button>
+              <button
+                onClick={() => {
+                  // 자동으로 고객 화면 이동 + 직원 화면 새 탭 열기
+                  goToEmployeeView();
+                  setTimeout(() => handleComplete(), 500);
+                }}
+                className="block text-lg px-4 py-2 bg-gradient-to-r from-blue-500 to-purple-500 text-white rounded shadow hover:from-blue-600 hover:to-purple-600"
+              >
+                🚀 시뮬레이션 시작
+              </button>
+            </>
+          )}
         </div>
       )}
 

@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { websocketService, type GazeData } from "../util/WebSocketService";
+import Calibration from "../component/Calibration";
 
 declare global {
   interface Window {
@@ -32,6 +33,8 @@ export default function CustomerView() {
       // WebGazer가 이미 시작되었는지 확인
       if (window.webgazer.isReady && window.webgazer.isReady()) {
         console.log("✅ WebGazer 이미 준비됨 - 트래킹 시작");
+        console.log("WebGazer 상태:", window.webgazer.getCurrentPrediction());
+        window.webgazer.showVideoPreview(false).showPredictionPoints(false);
         startTracking();
       } else {
         console.log("❌ Calibration 필요");
@@ -72,24 +75,15 @@ export default function CustomerView() {
     }
   };
 
+  const handleCalibrationComplete = () => {
+    setCalibrationStatus("ready");
+    setIsTracking(true);
+    startTracking();
+  };
+
   // Calibration이 필요한 경우
   if (calibrationStatus === "needed") {
-    return (
-      <div className="w-full h-screen flex items-center justify-center bg-gray-100">
-        <div className="text-center p-8 bg-white rounded-lg shadow-lg">
-          <h1 className="text-2xl font-bold mb-4">🎯 캘리브레이션 필요</h1>
-          <p className="text-gray-600 mb-6">
-            아이트래킹을 사용하기 전에 먼저 캘리브레이션을 완료해주세요.
-          </p>
-          <button
-            onClick={() => navigate("/calibration")}
-            className="px-6 py-3 bg-blue-500 text-white rounded-lg hover:bg-blue-600"
-          >
-            캘리브레이션 페이지로 이동
-          </button>
-        </div>
-      </div>
-    );
+    return <Calibration onComplete={handleCalibrationComplete} />;
   }
 
   // 상태 확인 중
@@ -105,6 +99,7 @@ export default function CustomerView() {
   }
 
   // 정상 화면
+  window.webgazer.showVideoPreview(false).showPredictionPoints(false);
   return (
     <div className="w-full min-h-screen relative bg-white">
       {/* 시선 트래커 */}
@@ -117,7 +112,7 @@ export default function CustomerView() {
       )}
 
       {/* 상태 표시 */}
-      <div className="absolute top-4 right-4 z-50">
+      <div className="absolute top-4 right-4 z-50 space-y-2">
         <div
           className={`px-3 py-1 rounded text-sm ${
             isTracking
@@ -127,6 +122,14 @@ export default function CustomerView() {
         >
           {isTracking ? "🟢 추적 중" : "🔴 대기 중"}
         </div>
+
+        {/* 재캘리브레이션 버튼 */}
+        <button
+          onClick={() => setCalibrationStatus("needed")}
+          className="block w-full px-3 py-1 bg-orange-500 text-white text-sm rounded hover:bg-orange-600"
+        >
+          🔄 재캘리브레이션
+        </button>
       </div>
 
       {/* 헤더 */}
@@ -154,7 +157,6 @@ export default function CustomerView() {
           </p>
         </div>
 
-        {/* 기존 약관 섹션들 그대로 유지 */}
         <div
           data-section="risk-warning"
           className="bg-red-50 border-l-4 border-red-400 p-8 mb-6 rounded"
