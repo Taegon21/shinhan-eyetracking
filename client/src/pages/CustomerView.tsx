@@ -1,6 +1,9 @@
 import { useEffect, useRef, useState } from "react";
 import { websocketService, type GazeData } from "../util/WebSocketService";
 import Calibration from "../component/Calibration";
+import SectionCard from "../component/SectionCard";
+import StatusPanel from "../component/StatusPanel";
+import SystemChecking from "../component/SystemChecking";
 
 declare global {
   interface Window {
@@ -86,18 +89,9 @@ export default function CustomerView() {
 
   // 상태 확인 중
   if (calibrationStatus === "checking") {
-    return (
-      <div className="w-full h-screen flex items-center justify-center bg-gray-100">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto mb-4"></div>
-          <p className="text-gray-600">시스템 확인 중...</p>
-        </div>
-      </div>
-    );
+    return <SystemChecking />;
   }
 
-  // 정상 화면
-  window.webgazer.showVideoPreview(false).showPredictionPoints(false);
   return (
     <div className="w-full h-screen flex flex-col relative bg-white">
       {/* 시선 트래커 */}
@@ -110,25 +104,13 @@ export default function CustomerView() {
       )}
 
       {/* 상태 표시 */}
-      <div className="absolute top-4 right-4 z-50 space-y-2">
-        <div
-          className={`px-3 py-1 rounded text-sm ${
-            isTracking
-              ? "bg-green-100 text-green-800"
-              : "bg-red-100 text-red-800"
-          }`}
-        >
-          {isTracking ? "🟢 추적 중" : "🔴 대기 중"}
-        </div>
-
-        {/* 재캘리브레이션 버튼 */}
-        <button
-          onClick={() => setCalibrationStatus("needed")}
-          className="block w-full px-3 py-1 bg-orange-500 text-white text-sm rounded hover:bg-orange-600"
-        >
-          🔄 재캘리브레이션
-        </button>
-      </div>
+      <StatusPanel
+        isTracking={isTracking}
+        onRecalibrate={() => {
+          setIsTracking(false);
+          setCalibrationStatus("needed");
+        }}
+      />
 
       {/* 메인 컨테이너 - 화면 중앙에 500px 고정 */}
       <div className="w-full max-w-[500px] mx-auto h-screen flex flex-col">
@@ -145,71 +127,61 @@ export default function CustomerView() {
         </div>
 
         {/* 투자 위험 고지사항 - 30% */}
-        <div
-          data-section="risk-warning"
-          className="bg-red-50 border-l-4 border-red-400 p-4 flex flex-col justify-center"
-          style={{ height: "30vh" }}
+        <SectionCard
+          sectionId="risk-warning"
+          title="⚠️ 투자 위험 고지사항"
+          bgColor="bg-red-50"
+          borderColor="border-red-400"
+          titleColor="text-red-700"
         >
-          <h3 className="text-lg font-semibold mb-3 text-red-700">
-            ⚠️ 투자 위험 고지사항
-          </h3>
-          <div className="text-sm leading-relaxed space-y-2">
-            <p>
-              <strong>원금 손실 위험:</strong> 본 금융상품은 원금 손실의 위험이
-              있습니다. 투자원금의 전부 또는 일부를 잃을 수 있습니다.
-            </p>
-            <p>
-              <strong>시장 위험:</strong> 주식, 채권, 파생상품 등의 가격
-              변동으로 인해 손실이 발생할 수 있습니다.
-            </p>
-          </div>
-        </div>
+          <p>
+            <strong>원금 손실 위험:</strong> 본 금융상품은 원금 손실의 위험이
+            있습니다. 투자원금의 전부 또는 일부를 잃을 수 있습니다.
+          </p>
+          <p>
+            <strong>시장 위험:</strong> 주식, 채권, 파생상품 등의 가격 변동으로
+            인해 손실이 발생할 수 있습니다.
+          </p>
+        </SectionCard>
 
         {/* 수수료 및 보수 안내 - 30% */}
-        <div
-          data-section="fee-info"
-          className="bg-yellow-50 border-l-4 border-yellow-400 p-4 flex flex-col justify-center"
-          style={{ height: "30vh" }}
+        <SectionCard
+          sectionId="fee-info"
+          title="💰 수수료 및 보수 안내"
+          bgColor="bg-yellow-50"
+          borderColor="border-yellow-400"
+          titleColor="text-yellow-700"
         >
-          <h3 className="text-lg font-semibold mb-3 text-yellow-700">
-            💰 수수료 및 보수 안내
-          </h3>
-          <div className="text-sm leading-relaxed space-y-2">
-            <p>
-              <strong>판매수수료:</strong> 가입금액의 1.0% (최대 100만원)
-            </p>
-            <p>
-              <strong>연간 관리보수:</strong> 연 1.5% (매일 차감)
-            </p>
-            <p>
-              <strong>성과보수:</strong> 수익 발생 시 초과수익의 20%
-            </p>
-          </div>
-        </div>
+          <p>
+            <strong>판매수수료:</strong> 가입금액의 1.0% (최대 100만원)
+          </p>
+          <p>
+            <strong>연간 관리보수:</strong> 연 1.5% (매일 차감)
+          </p>
+          <p>
+            <strong>성과보수:</strong> 수익 발생 시 초과수익의 20%
+          </p>
+        </SectionCard>
 
         {/* 계약 철회권 및 해지 조건 - 30% */}
-        <div
-          data-section="withdrawal-right"
-          className="bg-blue-50 border-l-4 border-blue-400 p-4 flex flex-col justify-center"
-          style={{ height: "30vh" }}
+        <SectionCard
+          sectionId="withdrawal-right"
+          title="📅 계약 철회권 및 해지 조건"
+          bgColor="bg-blue-50"
+          borderColor="border-blue-400"
+          titleColor="text-blue-700"
         >
-          <h3 className="text-lg font-semibold mb-3 text-blue-700">
-            📅 계약 철회권 및 해지 조건
-          </h3>
-          <div className="text-sm leading-relaxed space-y-2">
-            <p>
-              <strong>철회 기간:</strong> 계약체결일로부터 14일 이내 (영업일
-              기준)
-            </p>
-            <p>
-              <strong>철회 방법:</strong> 서면, 전화, 인터넷 등을 통해 철회 의사
-              표시
-            </p>
-            <p>
-              <strong>해지 수수료:</strong> 가입 후 1년 이내 해지 시 0.5% 부과
-            </p>
-          </div>
-        </div>
+          <p>
+            <strong>철회 기간:</strong> 계약체결일로부터 14일 이내 (영업일 기준)
+          </p>
+          <p>
+            <strong>철회 방법:</strong> 서면, 전화, 인터넷 등을 통해 철회 의사
+            표시
+          </p>
+          <p>
+            <strong>해지 수수료:</strong> 가입 후 1년 이내 해지 시 0.5% 부과
+          </p>
+        </SectionCard>
       </div>
     </div>
   );
