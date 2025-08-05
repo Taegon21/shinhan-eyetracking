@@ -1,9 +1,11 @@
 import { useEffect, useRef, useState } from "react";
 import { websocketService, type GazeData } from "../util/WebSocketService";
+
 import Calibration from "../component/Calibration";
 import SectionCard from "../component/SectionCard";
 import StatusPanel from "../component/StatusPanel";
 import SystemChecking from "../component/SystemChecking";
+import { domUtils, webgazerUtils } from "../util/utilFunction";
 
 declare global {
   interface Window {
@@ -21,21 +23,11 @@ export default function CustomerView() {
 
   useEffect(() => {
     // WebSocket 연결
-    websocketService.connect();
 
     // WebGazer 상태 확인
     const checkCalibration = () => {
-      if (!window.webgazer) {
-        console.warn("WebGazer 라이브러리가 로드되지 않았습니다.");
-        setCalibrationStatus("needed");
-        return;
-      }
-
-      // WebGazer가 이미 시작되었는지 확인
-      if (window.webgazer.isReady && window.webgazer.isReady()) {
+      if (webgazerUtils.isWebGazerReady()) {
         console.log("✅ WebGazer 이미 준비됨 - 트래킹 시작");
-        console.log("WebGazer 상태:", window.webgazer.getCurrentPrediction());
-        window.webgazer.showVideoPreview(false).showPredictionPoints(false);
         startTracking();
       } else {
         console.log("❌ Calibration 필요");
@@ -44,29 +36,23 @@ export default function CustomerView() {
     };
 
     const timer = setTimeout(checkCalibration, 500);
-
-    return () => {
-      clearTimeout(timer);
-    };
+    return () => clearTimeout(timer);
   }, []);
 
   const startTracking = () => {
-    if (!window.webgazer) return;
-
     try {
       setIsTracking(true);
       setCalibrationStatus("ready");
 
-      window.webgazer.setGazeListener((data: GazeData) => {
-        if (data && trackerRef.current) {
-          trackerRef.current.style.left = `${data.x}px`;
-          trackerRef.current.style.top = `${data.y}px`;
+      webgazerUtils.startGazeTracking((data: GazeData) => {
+        if (data) {
+          // 트래커 위치 업데이트
+          domUtils.updateTrackerPosition(trackerRef.current, data.x, data.y);
 
-          const targetElement = document.elementFromPoint(data.x, data.y);
-          const sectionId = targetElement
-            ?.closest("[data-section]")
-            ?.getAttribute("data-section");
+          // 섹션 ID 추출
+          const sectionId = domUtils.getSectionIdFromPoint(data.x, data.y);
 
+          // 웹소켓으로 데이터 전송
           websocketService.sendGazeData(data.x, data.y, sectionId);
         }
       });
@@ -80,6 +66,12 @@ export default function CustomerView() {
     setCalibrationStatus("ready");
     setIsTracking(true);
     startTracking();
+  };
+
+  const handleRecalibrate = () => {
+    setIsTracking(false);
+    setCalibrationStatus("needed");
+    webgazerUtils.stopGazeTracking();
   };
 
   // Calibration이 필요한 경우
@@ -104,17 +96,9 @@ export default function CustomerView() {
       )}
 
       {/* 상태 표시 */}
-      <StatusPanel
-        isTracking={isTracking}
-        onRecalibrate={() => {
-          setIsTracking(false);
-          setCalibrationStatus("needed");
-        }}
-      />
+      <StatusPanel isTracking={isTracking} onRecalibrate={handleRecalibrate} />
 
-      {/* 메인 컨테이너 - 화면 중앙에 500px 고정 */}
       <div className="w-full max-w-[500px] mx-auto h-screen flex flex-col">
-        {/* 헤더 - 10% */}
         <div
           data-section="header"
           className="bg-blue-600 text-white flex items-center justify-center"
@@ -126,7 +110,6 @@ export default function CustomerView() {
           </div>
         </div>
 
-        {/* 투자 위험 고지사항 - 30% */}
         <SectionCard
           sectionId="risk-warning"
           title="⚠️ 투자 위험 고지사항"
@@ -144,7 +127,6 @@ export default function CustomerView() {
           </p>
         </SectionCard>
 
-        {/* 수수료 및 보수 안내 - 30% */}
         <SectionCard
           sectionId="fee-info"
           title="💰 수수료 및 보수 안내"
@@ -163,7 +145,6 @@ export default function CustomerView() {
           </p>
         </SectionCard>
 
-        {/* 계약 철회권 및 해지 조건 - 30% */}
         <SectionCard
           sectionId="withdrawal-right"
           title="📅 계약 철회권 및 해지 조건"
