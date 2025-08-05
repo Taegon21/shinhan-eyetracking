@@ -1,5 +1,4 @@
 import { useEffect, useRef, useState } from "react";
-import { useNavigate } from "react-router-dom";
 import { websocketService, type GazeData } from "../util/WebSocketService";
 import Calibration from "../component/Calibration";
 
@@ -11,7 +10,6 @@ declare global {
 }
 
 export default function CustomerView() {
-  const navigate = useNavigate();
   const trackerRef = useRef<HTMLDivElement>(null);
   const [isTracking, setIsTracking] = useState(false);
   const [calibrationStatus, setCalibrationStatus] = useState<
@@ -101,7 +99,7 @@ export default function CustomerView() {
   // 정상 화면
   window.webgazer.showVideoPreview(false).showPredictionPoints(false);
   return (
-    <div className="w-full min-h-screen relative bg-white">
+    <div className="w-full h-screen flex flex-col relative bg-white">
       {/* 시선 트래커 */}
       {isTracking && (
         <div
@@ -132,60 +130,51 @@ export default function CustomerView() {
         </button>
       </div>
 
-      {/* 헤더 */}
-      <div className="bg-blue-600 text-white p-4">
-        <div className="flex justify-between items-center max-w-6xl mx-auto">
-          <h1 className="text-2xl font-bold">🏦 신한은행 금융상품 가입</h1>
-          <button
-            onClick={() => navigate("/")}
-            className="px-4 py-2 bg-blue-700 rounded hover:bg-blue-800"
-          >
-            ← 돌아가기
-          </button>
-        </div>
-      </div>
-
-      {/* 약관 내용 */}
-      <div className="max-w-6xl mx-auto p-6">
-        <div className="bg-gray-50 p-6 rounded-lg mb-6">
-          <h2 className="text-2xl font-bold mb-4">
-            📋 금융상품 설명서 및 약관
-          </h2>
-          <p className="text-gray-600 text-lg">
-            아래 내용을 천천히 읽어보시고, 이해가 되지 않는 부분은 언제든 문의해
-            주세요.
-          </p>
+      {/* 메인 컨테이너 - 화면 중앙에 500px 고정 */}
+      <div className="w-full max-w-[500px] mx-auto h-screen flex flex-col">
+        {/* 헤더 - 10% */}
+        <div
+          data-section="header"
+          className="bg-blue-600 text-white flex items-center justify-center"
+          style={{ height: "10vh" }}
+        >
+          <div className="text-center">
+            <h1 className="text-lg font-bold">🏦 신한은행</h1>
+            <p className="text-sm">금융상품 가입</p>
+          </div>
         </div>
 
+        {/* 투자 위험 고지사항 - 30% */}
         <div
           data-section="risk-warning"
-          className="bg-red-50 border-l-4 border-red-400 p-8 mb-6 rounded"
+          className="bg-red-50 border-l-4 border-red-400 p-4 flex flex-col justify-center"
+          style={{ height: "30vh" }}
         >
-          <h3 className="text-2xl font-semibold mb-4 text-red-700">
+          <h3 className="text-lg font-semibold mb-3 text-red-700">
             ⚠️ 투자 위험 고지사항
           </h3>
-          <div className="text-lg leading-relaxed space-y-4">
+          <div className="text-sm leading-relaxed space-y-2">
             <p>
               <strong>원금 손실 위험:</strong> 본 금융상품은 원금 손실의 위험이
-              있습니다. 투자원금의 전부 또는 일부를 잃을 수 있으며,
-              예금자보호법에 따른 예금보험공사의 보호 대상이 아닙니다.
+              있습니다. 투자원금의 전부 또는 일부를 잃을 수 있습니다.
             </p>
             <p>
               <strong>시장 위험:</strong> 주식, 채권, 파생상품 등의 가격
-              변동으로 인해 손실이 발생할 수 있습니다. 과거의 운용실적이 미래의
-              수익률을 보장하지 않습니다.
+              변동으로 인해 손실이 발생할 수 있습니다.
             </p>
           </div>
         </div>
 
+        {/* 수수료 및 보수 안내 - 30% */}
         <div
           data-section="fee-info"
-          className="bg-yellow-50 border-l-4 border-yellow-400 p-8 mb-6 rounded"
+          className="bg-yellow-50 border-l-4 border-yellow-400 p-4 flex flex-col justify-center"
+          style={{ height: "30vh" }}
         >
-          <h3 className="text-2xl font-semibold mb-4 text-yellow-700">
+          <h3 className="text-lg font-semibold mb-3 text-yellow-700">
             💰 수수료 및 보수 안내
           </h3>
-          <div className="text-lg leading-relaxed space-y-4">
+          <div className="text-sm leading-relaxed space-y-2">
             <p>
               <strong>판매수수료:</strong> 가입금액의 1.0% (최대 100만원)
             </p>
@@ -198,14 +187,16 @@ export default function CustomerView() {
           </div>
         </div>
 
+        {/* 계약 철회권 및 해지 조건 - 30% */}
         <div
           data-section="withdrawal-right"
-          className="bg-blue-50 border-l-4 border-blue-400 p-8 mb-6 rounded"
+          className="bg-blue-50 border-l-4 border-blue-400 p-4 flex flex-col justify-center"
+          style={{ height: "30vh" }}
         >
-          <h3 className="text-2xl font-semibold mb-4 text-blue-700">
+          <h3 className="text-lg font-semibold mb-3 text-blue-700">
             📅 계약 철회권 및 해지 조건
           </h3>
-          <div className="text-lg leading-relaxed space-y-4">
+          <div className="text-sm leading-relaxed space-y-2">
             <p>
               <strong>철회 기간:</strong> 계약체결일로부터 14일 이내 (영업일
               기준)
@@ -213,6 +204,9 @@ export default function CustomerView() {
             <p>
               <strong>철회 방법:</strong> 서면, 전화, 인터넷 등을 통해 철회 의사
               표시
+            </p>
+            <p>
+              <strong>해지 수수료:</strong> 가입 후 1년 이내 해지 시 0.5% 부과
             </p>
           </div>
         </div>
