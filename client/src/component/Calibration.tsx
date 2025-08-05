@@ -172,8 +172,6 @@ export default function CalibrationView({ onComplete }: CalibrationViewProps) {
         </div>
       )}
 
-      {/* 상태 표시 */}
-
       {/* 캘리브레이션 점 */}
       {mode === "calibration" && currentPoint && (
         <CalibrationDot

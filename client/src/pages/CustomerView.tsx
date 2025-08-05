@@ -6,6 +6,8 @@ import SectionCard from "../component/SectionCard";
 import StatusPanel from "../component/StatusPanel";
 import SystemChecking from "../component/SystemChecking";
 import { domUtils, webgazerUtils } from "../util/utilFunction";
+import { PAGE_CONTENTS, type PageType } from "../constant/content";
+import Navigation from "../component/Navigation";
 
 declare global {
   interface Window {
@@ -20,6 +22,7 @@ export default function CustomerView() {
   const [calibrationStatus, setCalibrationStatus] = useState<
     "checking" | "needed" | "ready"
   >("checking");
+  const [currentPage, setCurrentPage] = useState<PageType>("productJoin");
 
   useEffect(() => {
     // WebSocket 연결
@@ -74,6 +77,24 @@ export default function CustomerView() {
     webgazerUtils.stopGazeTracking();
   };
 
+  const handleNextPage = () => {
+    if (currentPage === "productJoin") {
+      setCurrentPage("productDetail");
+    } else if (currentPage === "productDetail") {
+      setCurrentPage("productComparison");
+    }
+    // productComparison에서는 더 이상 진행할 페이지가 없음
+  };
+
+  const handlePrevPage = () => {
+    if (currentPage === "productComparison") {
+      setCurrentPage("productDetail");
+    } else if (currentPage === "productDetail") {
+      setCurrentPage("productJoin");
+    }
+    // productJoin에서는 더 이상 이전 페이지가 없음
+  };
+
   // Calibration이 필요한 경우
   if (calibrationStatus === "needed") {
     return <Calibration onComplete={handleCalibrationComplete} />;
@@ -83,6 +104,8 @@ export default function CustomerView() {
   if (calibrationStatus === "checking") {
     return <SystemChecking />;
   }
+
+  const pageData = PAGE_CONTENTS[currentPage];
 
   return (
     <div className="w-full h-screen flex flex-col relative bg-white">
@@ -99,70 +122,42 @@ export default function CustomerView() {
       <StatusPanel isTracking={isTracking} onRecalibrate={handleRecalibrate} />
 
       <div className="w-full max-w-[500px] mx-auto h-screen flex flex-col">
+        {/* 헤더 */}
         <div
           data-section="header"
           className="bg-blue-600 text-white flex items-center justify-center"
           style={{ height: "10vh" }}
         >
           <div className="text-center">
-            <h1 className="text-lg font-bold">🏦 신한은행</h1>
-            <p className="text-sm">금융상품 가입</p>
+            <h1 className="text-lg font-bold">{pageData.header.title}</h1>
+            <p className="text-sm">{pageData.header.subtitle}</p>
           </div>
         </div>
 
-        <SectionCard
-          sectionId="risk-warning"
-          title="⚠️ 투자 위험 고지사항"
-          bgColor="bg-red-50"
-          borderColor="border-red-400"
-          titleColor="text-red-700"
-        >
-          <p>
-            <strong>원금 손실 위험:</strong> 본 금융상품은 원금 손실의 위험이
-            있습니다. 투자원금의 전부 또는 일부를 잃을 수 있습니다.
-          </p>
-          <p>
-            <strong>시장 위험:</strong> 주식, 채권, 파생상품 등의 가격 변동으로
-            인해 손실이 발생할 수 있습니다.
-          </p>
-        </SectionCard>
+        {/* 섹션들 */}
+        {pageData.sections.map((section) => (
+          <SectionCard
+            key={section.id}
+            sectionId={section.id}
+            title={section.title}
+            bgColor={section.bgColor}
+            borderColor={section.borderColor}
+            titleColor={section.titleColor}
+          >
+            {section.content.map((item, index) => (
+              <p key={index}>
+                <strong>{item.label}</strong> {item.text}
+              </p>
+            ))}
+          </SectionCard>
+        ))}
 
-        <SectionCard
-          sectionId="fee-info"
-          title="💰 수수료 및 보수 안내"
-          bgColor="bg-yellow-50"
-          borderColor="border-yellow-400"
-          titleColor="text-yellow-700"
-        >
-          <p>
-            <strong>판매수수료:</strong> 가입금액의 1.0% (최대 100만원)
-          </p>
-          <p>
-            <strong>연간 관리보수:</strong> 연 1.5% (매일 차감)
-          </p>
-          <p>
-            <strong>성과보수:</strong> 수익 발생 시 초과수익의 20%
-          </p>
-        </SectionCard>
-
-        <SectionCard
-          sectionId="withdrawal-right"
-          title="📅 계약 철회권 및 해지 조건"
-          bgColor="bg-blue-50"
-          borderColor="border-blue-400"
-          titleColor="text-blue-700"
-        >
-          <p>
-            <strong>철회 기간:</strong> 계약체결일로부터 14일 이내 (영업일 기준)
-          </p>
-          <p>
-            <strong>철회 방법:</strong> 서면, 전화, 인터넷 등을 통해 철회 의사
-            표시
-          </p>
-          <p>
-            <strong>해지 수수료:</strong> 가입 후 1년 이내 해지 시 0.5% 부과
-          </p>
-        </SectionCard>
+        {/* 네비게이션 버튼 */}
+        <Navigation
+          currentPage={currentPage}
+          onPrevPage={handlePrevPage}
+          onNextPage={handleNextPage}
+        />
       </div>
     </div>
   );
