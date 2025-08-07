@@ -1,241 +1,180 @@
 import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import {
+  websocketService,
+  type GazeData,
+  type PageChangeData,
+} from "../util/WebSocketService";
+import {
+  PAGE_NAMES,
+  PAGE_SECTIONS,
+  type SectionInfo,
+} from "../constant/content";
 
-interface GazeData {
-  x: number;
-  y: number;
-  timestamp: number;
-  sectionId?: string | null;
-}
+import StatusOverlay from "../component/employee/StatusOverlay";
+import EmployeeHeader from "../component/employee/EmployeeHeader";
+import CurrentPageStatus from "../component/employee/CurrentPageStatus";
+import OverallProgress from "../component/employee/OverallProgress";
+import SectionProgress from "../component/employee/SectionProgress";
 
-interface SectionStatus {
-  name: string;
+interface SectionStatus extends SectionInfo {
   viewed: boolean;
   viewTime: number;
-  required: number;
-  color: string;
+  lastViewTime: number;
 }
 
 export default function EmployeeView() {
-  const navigate = useNavigate();
-  const [currentGaze, setCurrentGaze] = useState<GazeData | null>(null);
+  const [currentPage, setCurrentPage] = useState<string>("productJoin");
+  const [connectionStatus, setConnectionStatus] = useState<
+    "connecting" | "connected" | "disconnected"
+  >("connecting");
   const [sectionStatus, setSectionStatus] = useState<
     Record<string, SectionStatus>
-  >({
-    "risk-warning": {
-      name: "위험 고지사항",
-      viewed: false,
-      viewTime: 0,
-      required: 10,
-      color: "border-red-400",
-    },
-    "fee-info": {
-      name: "수수료 안내",
-      viewed: false,
-      viewTime: 0,
-      required: 8,
-      color: "border-yellow-400",
-    },
-    "withdrawal-right": {
-      name: "계약 철회권",
-      viewed: false,
-      viewTime: 0,
-      required: 6,
-      color: "border-blue-400",
-    },
-  });
+  >({});
 
-  const [allSectionsComplete, setAllSectionsComplete] = useState(false);
   const [lastActiveSection, setLastActiveSection] = useState<string>("");
+  const [pageProgress, setPageProgress] = useState<Record<string, number>>({});
+
+  // 고객 활동 상태 추가
+  const [isCustomerActive, setIsCustomerActive] = useState(true);
+  const [lastDataTime, setLastDataTime] = useState<number>(Date.now());
+
+  // 현재 페이지의 섹션으로 sectionStatus 초기화
+  useEffect(() => {
+    const currentSections = PAGE_SECTIONS[currentPage] || [];
+    const newStatus: Record<string, SectionStatus> = {};
+
+    currentSections.forEach((section) => {
+      newStatus[section.id] = {
+        ...section,
+        viewed: false,
+        viewTime: 0,
+        lastViewTime: 0,
+      };
+    });
+
+    setSectionStatus(newStatus);
+  }, [currentPage]);
+
+  // 고객 활동 상태 모니터링
+  useEffect(() => {
+    const checkActivity = setInterval(() => {
+      const now = Date.now();
+      const timeSinceLastData = (now - lastDataTime) / 1000;
+
+      if (timeSinceLastData >= 3) {
+        setIsCustomerActive(false);
+      } else {
+        setIsCustomerActive(true);
+      }
+    }, 1000);
+
+    return () => clearInterval(checkActivity);
+  }, [lastDataTime]);
 
   useEffect(() => {
-    // WebSocket으로 시선 데이터 수신 (여기서는 시뮬레이션)
-    const interval = setInterval(() => {
-      // 실제로는 websocketService.onGazeData()로 받아옴
-      // 여기서는 테스트용 시뮬레이션
-      const mockGazeData: GazeData = {
-        x: Math.random() * 1200,
-        y: Math.random() * 800,
-        sectionId:
-          Math.random() > 0.7
-            ? Object.keys(sectionStatus)[Math.floor(Math.random() * 3)]
-            : undefined,
-        timestamp: Date.now(),
-      };
+    // WebSocket 연결
+    websocketService.connect();
 
-      setCurrentGaze(mockGazeData);
+    // 연결 상태 리스너
+    websocketService.onConnect(() => {
+      setConnectionStatus("connected");
+      console.log("✅ WebSocket 연결됨");
+    });
 
-      if (mockGazeData.sectionId) {
-        setLastActiveSection(mockGazeData.sectionId);
+    websocketService.onDisconnect(() => {
+      setConnectionStatus("disconnected");
+      console.log("❌ WebSocket 연결 끊김");
+    });
+
+    // 시선 데이터 리스너
+    websocketService.onGazeData((data: GazeData) => {
+      setLastDataTime(Date.now()); // 데이터 수신 시간 업데이트
+
+      if (data.currentPage && data.currentPage !== currentPage) {
+        setCurrentPage(data.currentPage);
+      }
+
+      if (data.sectionId) {
+        setLastActiveSection(data.sectionId);
         setSectionStatus((prev) => ({
           ...prev,
-          [mockGazeData.sectionId!]: {
-            ...prev[mockGazeData.sectionId!],
+          [data.sectionId!]: {
+            ...prev[data.sectionId!],
             viewed: true,
-            viewTime: prev[mockGazeData.sectionId!].viewTime + 0.1,
+            viewTime: prev[data.sectionId!]?.viewTime + 0.1 || 0.1,
+            lastViewTime: Date.now(),
           },
         }));
       }
-    }, 100);
+    });
 
-    return () => clearInterval(interval);
-  }, []);
+    // 페이지 변경 리스너
+    websocketService.onPageChange((data: PageChangeData) => {
+      setCurrentPage(data.currentPage);
+      setLastDataTime(Date.now()); // 페이지 변경도 활동으로 간주
+      console.log(
+        `📄 페이지 변경: ${PAGE_NAMES[data.currentPage] || data.currentPage}`
+      );
+    });
 
+    return () => {
+      websocketService.disconnect();
+    };
+  }, [currentPage]);
+
+  // 완료 상태 체크
   useEffect(() => {
-    const complete = Object.values(sectionStatus).every(
-      (section) => section.viewTime >= section.required
-    );
-    setAllSectionsComplete(complete);
-  }, [sectionStatus]);
+    const currentSections = Object.values(sectionStatus);
+
+    // 페이지별 진행률 계산
+    const progress =
+      currentSections.length > 0
+        ? currentSections.reduce(
+            (acc, section) =>
+              acc + Math.min((section.viewTime / section.required) * 100, 100),
+            0
+          ) / currentSections.length
+        : 0;
+
+    setPageProgress((prev) => ({
+      ...prev,
+      [currentPage]: progress,
+    }));
+  }, [sectionStatus, currentPage]);
+
+  // 오버레이 표시 조건
+  const showOverlay = connectionStatus === "disconnected" || !isCustomerActive;
 
   return (
-    <div className="w-full h-screen bg-gray-100">
-      {/* 헤더 */}
-      <div className="bg-gray-800 text-white p-4">
-        <div className="flex justify-between items-center max-w-7xl mx-auto">
-          <h1 className="text-2xl font-bold">👨‍💼 직원 모니터링 시스템</h1>
-          <div className="flex space-x-4">
-            <button
-              onClick={() => window.open("/customer", "_blank")}
-              className="px-4 py-2 bg-blue-600 rounded"
-            >
-              👤 고객 화면 열기
-            </button>
-            <button
-              onClick={() => navigate("/")}
-              className="px-4 py-2 bg-gray-600 rounded"
-            >
-              ← 돌아가기
-            </button>
-          </div>
-        </div>
-      </div>
+    <div className="w-full h-screen bg-gray-100 relative">
+      <StatusOverlay
+        showOverlay={showOverlay}
+        connectionStatus={connectionStatus}
+        onReconnect={() => websocketService.connect()}
+      />
+
+      <EmployeeHeader
+        isCustomerActive={isCustomerActive}
+        connectionStatus={connectionStatus}
+      />
 
       <div className="max-w-7xl mx-auto p-6">
-        {/* 전체 상태 알림 */}
-        <div
-          className={`p-6 rounded-lg mb-6 text-center ${
-            allSectionsComplete
-              ? "bg-green-100 border-2 border-green-400"
-              : "bg-yellow-100 border-2 border-yellow-400"
-          }`}
-        >
-          {allSectionsComplete ? (
-            <div>
-              <h2 className="text-2xl font-bold text-green-800">
-                🎉 약관 확인 완료!
-              </h2>
-              <p className="text-green-700 text-lg">
-                고객이 모든 중요 약관을 충분히 확인했습니다. 계약 진행이
-                가능합니다.
-              </p>
-            </div>
-          ) : (
-            <div>
-              <h2 className="text-2xl font-bold text-yellow-800">
-                ⏳ 약관 확인 진행 중
-              </h2>
-              <p className="text-yellow-700 text-lg">
-                고객이 중요 약관을 확인하고 있습니다. 완료까지 기다려 주세요.
-              </p>
-            </div>
-          )}
-        </div>
+        <CurrentPageStatus
+          currentPage={currentPage}
+          pageNames={PAGE_NAMES}
+          pageProgress={pageProgress}
+        />
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {/* 실시간 시선 데이터 */}
-          <div className="bg-white p-6 rounded-lg shadow">
-            <h3 className="text-xl font-semibold mb-4">📍 실시간 시선 추적</h3>
-            <div className="space-y-3">
-              <div className="flex justify-between">
-                <span>현재 위치:</span>
-                <span className="font-mono">
-                  X: {currentGaze?.x.toFixed(0) || 0}, Y:{" "}
-                  {currentGaze?.y.toFixed(0) || 0}
-                </span>
-              </div>
-              <div className="flex justify-between">
-                <span>활성 섹션:</span>
-                <span
-                  className={`px-2 py-1 rounded ${
-                    lastActiveSection
-                      ? "bg-green-100 text-green-800"
-                      : "bg-gray-100 text-gray-600"
-                  }`}
-                >
-                  {lastActiveSection
-                    ? sectionStatus[lastActiveSection]?.name
-                    : "없음"}
-                </span>
-              </div>
-            </div>
-          </div>
-
-          {/* 약관별 확인 상태 */}
-          <div className="bg-white p-6 rounded-lg shadow">
-            <h3 className="text-xl font-semibold mb-4">
-              ✅ 약관 확인 진행 상황
-            </h3>
-            <div className="space-y-4">
-              {Object.entries(sectionStatus).map(([key, section]) => {
-                const progress = Math.min(
-                  (section.viewTime / section.required) * 100,
-                  100
-                );
-                const isComplete = section.viewTime >= section.required;
-
-                return (
-                  <div
-                    key={key}
-                    className={`p-4 border-l-4 rounded ${section.color} ${
-                      isComplete ? "bg-green-50" : "bg-gray-50"
-                    }`}
-                  >
-                    <div className="flex justify-between items-center mb-2">
-                      <span className="font-medium">{section.name}</span>
-                      <span
-                        className={`px-2 py-1 rounded text-sm ${
-                          isComplete
-                            ? "bg-green-200 text-green-800"
-                            : "bg-gray-200 text-gray-600"
-                        }`}
-                      >
-                        {isComplete ? "완료" : "진행중"}
-                      </span>
-                    </div>
-                    <div className="flex justify-between text-sm text-gray-600 mb-2">
-                      <span>확인 시간: {section.viewTime.toFixed(1)}초</span>
-                      <span>필요 시간: {section.required}초</span>
-                    </div>
-                    <div className="w-full bg-gray-200 rounded-full h-2">
-                      <div
-                        className={`h-2 rounded-full transition-all duration-300 ${
-                          isComplete ? "bg-green-500" : "bg-blue-500"
-                        }`}
-                        style={{ width: `${progress}%` }}
-                      />
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        </div>
-
-        {/* 고객 화면 미러링 (iframe) */}
-        <div className="bg-white p-6 rounded-lg shadow mt-6">
-          <h3 className="text-xl font-semibold mb-4">🖥️ 고객 화면 미러링</h3>
-          <div className="border-2 border-gray-300 rounded">
-            {/* <iframe
-              src="/customer"
-              className="w-full h-96 rounded"
-              title="고객 화면 미러링"
-            /> */}
-          </div>
-          <p className="text-sm text-gray-600 mt-2">
-            * 실제 환경에서는 고객 태블릿 화면이 실시간으로 미러링됩니다.
-          </p>
-        </div>
+        <SectionProgress
+          currentPageName={PAGE_NAMES[currentPage]}
+          sectionStatus={sectionStatus}
+          lastActiveSection={lastActiveSection}
+        />
+        <OverallProgress
+          pageNames={PAGE_NAMES}
+          pageProgress={pageProgress}
+          currentPage={currentPage}
+        />
       </div>
     </div>
   );

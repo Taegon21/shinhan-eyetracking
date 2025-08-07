@@ -1,13 +1,13 @@
 import { useEffect, useRef, useState } from "react";
 import { websocketService, type GazeData } from "../util/WebSocketService";
 
-import Calibration from "../component/Calibration";
-import SectionCard from "../component/SectionCard";
-import StatusPanel from "../component/StatusPanel";
-import SystemChecking from "../component/SystemChecking";
+import Calibration from "../component/customer/Calibration";
+import SectionCard from "../component/customer/SectionCard";
+import StatusPanel from "../component/customer/StatusPanel";
+import SystemChecking from "../component/customer/SystemChecking";
 import { domUtils, webgazerUtils } from "../util/utilFunction";
 import { PAGE_CONTENTS, type PageType } from "../constant/content";
-import Navigation from "../component/Navigation";
+import Navigation from "../component/customer/Navigation";
 
 declare global {
   interface Window {
@@ -55,8 +55,8 @@ export default function CustomerView() {
           // 섹션 ID 추출
           const sectionId = domUtils.getSectionIdFromPoint(data.x, data.y);
 
-          // 웹소켓으로 데이터 전송
-          websocketService.sendGazeData(data.x, data.y, sectionId);
+          // 현재 페이지 정보도 함께 전송
+          websocketService.sendGazeData(data.x, data.y, sectionId, currentPage);
         }
       });
     } catch (error) {
@@ -78,22 +78,37 @@ export default function CustomerView() {
   };
 
   const handleNextPage = () => {
+    let nextPage: PageType = currentPage;
+
     if (currentPage === "productJoin") {
-      setCurrentPage("productDetail");
+      nextPage = "productDetail";
     } else if (currentPage === "productDetail") {
-      setCurrentPage("productComparison");
+      nextPage = "productComparison";
     }
-    // productComparison에서는 더 이상 진행할 페이지가 없음
+
+    setCurrentPage(nextPage);
+    // 페이지 변경을 WebSocket으로 전송
+    websocketService.sendPageChange(nextPage);
   };
 
   const handlePrevPage = () => {
+    let prevPage: PageType = currentPage;
+
     if (currentPage === "productComparison") {
-      setCurrentPage("productDetail");
+      prevPage = "productDetail";
     } else if (currentPage === "productDetail") {
-      setCurrentPage("productJoin");
+      prevPage = "productJoin";
     }
-    // productJoin에서는 더 이상 이전 페이지가 없음
+
+    setCurrentPage(prevPage);
+    // 페이지 변경을 WebSocket으로 전송
+    websocketService.sendPageChange(prevPage);
   };
+
+  // 페이지가 변경될 때마다 WebSocket으로 알림
+  useEffect(() => {
+    websocketService.sendPageChange(currentPage);
+  }, [currentPage]);
 
   // Calibration이 필요한 경우
   if (calibrationStatus === "needed") {

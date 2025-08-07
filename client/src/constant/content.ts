@@ -1,4 +1,30 @@
-export const PAGE_CONTENTS = {
+export interface ContentItem {
+  label: string;
+  text: string;
+}
+
+export interface SectionInfo {
+  id: string;
+  title: string;
+  bgColor: string;
+  borderColor: string;
+  titleColor: string;
+  content: ContentItem[];
+  // 시선 추적을 위한 추가 정보
+  name: string; // 관리자 화면에서 표시될 이름
+  required: number; // 필요한 시청 시간 (초)
+  priority: "high" | "medium" | "low";
+}
+
+export interface PageContent {
+  header: {
+    title: string;
+    subtitle: string;
+  };
+  sections: SectionInfo[];
+}
+
+export const PAGE_CONTENTS: Record<string, PageContent> = {
   productJoin: {
     header: {
       title: "🏦 신한은행",
@@ -8,9 +34,12 @@ export const PAGE_CONTENTS = {
       {
         id: "risk-warning",
         title: "⚠️ 투자 위험 고지사항",
+        name: "위험 고지사항", // 관리자 화면용 짧은 이름
         bgColor: "bg-red-50",
         borderColor: "border-red-400",
         titleColor: "text-red-700",
+        required: 10, // 10초 이상 시청 필요
+        priority: "high",
         content: [
           {
             label: "원금 손실 위험:",
@@ -25,9 +54,12 @@ export const PAGE_CONTENTS = {
       {
         id: "fee-info",
         title: "💰 수수료 및 보수 안내",
+        name: "수수료 안내",
         bgColor: "bg-yellow-50",
         borderColor: "border-yellow-400",
         titleColor: "text-yellow-700",
+        required: 8,
+        priority: "high",
         content: [
           {
             label: "판매수수료:",
@@ -46,9 +78,12 @@ export const PAGE_CONTENTS = {
       {
         id: "withdrawal-right",
         title: "📅 계약 철회권 및 해지 조건",
+        name: "계약 철회권",
         bgColor: "bg-blue-50",
         borderColor: "border-blue-400",
         titleColor: "text-blue-700",
+        required: 6,
+        priority: "medium",
         content: [
           {
             label: "철회 기간:",
@@ -75,9 +110,12 @@ export const PAGE_CONTENTS = {
       {
         id: "product-overview",
         title: "📋 상품 개요",
+        name: "상품 개요",
         bgColor: "bg-green-50",
         borderColor: "border-green-400",
         titleColor: "text-green-700",
+        required: 5,
+        priority: "medium",
         content: [
           {
             label: "상품명:",
@@ -96,9 +134,12 @@ export const PAGE_CONTENTS = {
       {
         id: "investment-strategy",
         title: "🎯 투자 전략",
+        name: "투자 전략",
         bgColor: "bg-purple-50",
         borderColor: "border-purple-400",
         titleColor: "text-purple-700",
+        required: 10,
+        priority: "high",
         content: [
           {
             label: "자산배분 전략:",
@@ -117,9 +158,12 @@ export const PAGE_CONTENTS = {
       {
         id: "subscription-info",
         title: "💳 가입 정보",
+        name: "가입 정보",
         bgColor: "bg-indigo-50",
         borderColor: "border-indigo-400",
         titleColor: "text-indigo-700",
+        required: 7,
+        priority: "medium",
         content: [
           {
             label: "최소 가입금액:",
@@ -146,9 +190,12 @@ export const PAGE_CONTENTS = {
       {
         id: "product-comparison-table",
         title: "📊 상품 비교표",
+        name: "상품 비교표",
         bgColor: "bg-orange-50",
         borderColor: "border-orange-400",
         titleColor: "text-orange-700",
+        required: 15,
+        priority: "high",
         content: [
           {
             label: "글로벌 멀티에셋 펀드:",
@@ -167,9 +214,12 @@ export const PAGE_CONTENTS = {
       {
         id: "risk-return-analysis",
         title: "📈 위험-수익 분석",
+        name: "위험-수익 분석",
         bgColor: "bg-pink-50",
         borderColor: "border-pink-400",
         titleColor: "text-pink-700",
+        required: 12,
+        priority: "high",
         content: [
           {
             label: "최대 손실 가능성:",
@@ -188,9 +238,12 @@ export const PAGE_CONTENTS = {
       {
         id: "recommendation",
         title: "💡 투자 성향별 추천",
+        name: "투자 성향별 추천",
         bgColor: "bg-cyan-50",
         borderColor: "border-cyan-400",
         titleColor: "text-cyan-700",
+        required: 10,
+        priority: "medium",
         content: [
           {
             label: "안정 추구형:",
@@ -210,4 +263,31 @@ export const PAGE_CONTENTS = {
   },
 } as const;
 
+// 페이지 이름 매핑
+export const PAGE_NAMES: Record<string, string> = {
+  productJoin: "상품 가입",
+  productDetail: "상품 상세",
+  productComparison: "상품 비교",
+};
+
+// 페이지별 섹션 정보 추출 (EmployeeView에서 사용)
+export const PAGE_SECTIONS: Record<string, SectionInfo[]> = Object.keys(
+  PAGE_CONTENTS
+).reduce(
+  (acc, pageKey) => {
+    acc[pageKey] = PAGE_CONTENTS[pageKey].sections;
+    return acc;
+  },
+  {} as Record<string, SectionInfo[]>
+);
+
 export type PageType = keyof typeof PAGE_CONTENTS;
+
+// 섹션 상태 인터페이스 (EmployeeView에서 확장해서 사용)
+export interface SectionStatusBase {
+  id: string;
+  name: string;
+  required: number;
+  priority: "high" | "medium" | "low";
+  color: string; // borderColor를 color로 단순화
+}
