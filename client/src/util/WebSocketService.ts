@@ -13,7 +13,7 @@ export interface PageChangeData {
 }
 
 export interface WebSocketMessage {
-  type: "gazeData" | "pageChange" | "gaze" | "status" | "error";
+  type: "gazeData" | "pageChange" | "gaze" | "status" | "clientCount" | "error";
   data: GazeData | PageChangeData | string;
 }
 
@@ -171,6 +171,11 @@ class WebSocketService {
           if (this.errorCallback && typeof message.data === "string") {
             this.errorCallback(message.data);
           }
+          break;
+        case "clientCount":
+          // 클라이언트 수 업데이트 로직 추가
+          console.log("현재 클라이언트 수:", message.data);
+
           break;
 
         default:
