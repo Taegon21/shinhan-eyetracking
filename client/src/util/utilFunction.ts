@@ -1,8 +1,15 @@
 import type { GazeData } from "./WebSocketService";
+import { PAGE_SECTIONS, type SectionInfo } from "../constant/content";
 
 interface Point {
   x: number;
   y: number;
+}
+
+export interface SectionStatus extends SectionInfo {
+  viewed: boolean;
+  viewTime: number;
+  lastViewTime: number;
 }
 
 export const generateShuffledPoints = (rows: number, cols: number): Point[] => {
@@ -40,6 +47,53 @@ export const generateShuffledPoints = (rows: number, cols: number): Point[] => {
   }
 
   return [...extremePoints, ...filtered];
+};
+
+// 섹션이 속한 페이지를 찾는 함수
+export const findPageBySection = (sectionId: string): string | null => {
+  for (const [pageKey, sections] of Object.entries(PAGE_SECTIONS)) {
+    if (sections.some((section) => section.id === sectionId)) {
+      return pageKey;
+    }
+  }
+  return null;
+};
+
+// 페이지 섹션 초기화 함수
+export const initializePageSections = (
+  pageKey: string
+): Record<string, SectionStatus> => {
+  const sections = PAGE_SECTIONS[pageKey] || [];
+  const newPageSections: Record<string, SectionStatus> = {};
+
+  sections.forEach((section) => {
+    newPageSections[section.id] = {
+      ...section,
+      viewed: false,
+      viewTime: 0,
+      lastViewTime: 0,
+    };
+  });
+
+  return newPageSections;
+};
+
+// 진행률 계산 함수
+export const calculatePageProgress = (
+  pageSections: SectionInfo[],
+  pageStatus: Record<string, SectionStatus>
+): number => {
+  if (pageSections.length === 0) return 0;
+
+  const totalProgress = pageSections.reduce((acc, section) => {
+    const sectionData = pageStatus[section.id];
+    const sectionProgress = sectionData
+      ? Math.min((sectionData.viewTime / sectionData.required) * 100, 100)
+      : 0;
+    return acc + sectionProgress;
+  }, 0);
+
+  return totalProgress / pageSections.length;
 };
 
 export const webgazerUtils = {

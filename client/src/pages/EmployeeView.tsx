@@ -1,26 +1,23 @@
+/* eslint-disable react-hooks/exhaustive-deps */
 import { useEffect, useState } from "react";
 import {
   websocketService,
   type GazeData,
   type PageChangeData,
 } from "../util/WebSocketService";
+import { PAGE_NAMES, PAGE_SECTIONS } from "../constant/content";
 import {
-  PAGE_NAMES,
-  PAGE_SECTIONS,
-  type SectionInfo,
-} from "../constant/content";
+  type SectionStatus,
+  findPageBySection,
+  initializePageSections,
+  calculatePageProgress,
+} from "../util/utilFunction";
 
 import StatusOverlay from "../component/employee/StatusOverlay";
 import EmployeeHeader from "../component/employee/EmployeeHeader";
 import CurrentPageStatus from "../component/employee/CurrentPageStatus";
 import OverallProgress from "../component/employee/OverallProgress";
 import SectionProgress from "../component/employee/SectionProgress";
-
-interface SectionStatus extends SectionInfo {
-  viewed: boolean;
-  viewTime: number;
-  lastViewTime: number;
-}
 
 export default function EmployeeView() {
   const [currentPage, setCurrentPage] = useState<string>("productJoin");
@@ -43,154 +40,149 @@ export default function EmployeeView() {
   // 현재 페이지의 섹션 상태 계산 (computed value)
   const sectionStatus = allPageSections[currentPage] || {};
 
-  // 페이지가 변경될 때 해당 페이지의 섹션 초기화
-  useEffect(() => {
-    const currentSections = PAGE_SECTIONS[currentPage] || [];
-
-    // 현재 페이지의 섹션이 allPageSections에 없으면 초기화
-    if (!allPageSections[currentPage]) {
-      const newPageSections: Record<string, SectionStatus> = {};
-
-      currentSections.forEach((section) => {
-        newPageSections[section.id] = {
-          ...section,
-          viewed: false,
-          viewTime: 0,
-          lastViewTime: 0,
-        };
-      });
+  // 페이지 섹션 초기화 함수
+  const initializeCurrentPageSections = (pageKey: string) => {
+    if (!allPageSections[pageKey]) {
+      const newPageSections = initializePageSections(pageKey);
 
       setAllPageSections((prev) => ({
         ...prev,
-        [currentPage]: newPageSections,
+        [pageKey]: newPageSections,
       }));
 
-      console.log(`🔄 페이지 섹션 초기화: ${currentPage}`, newPageSections);
+      console.log(`🔄 페이지 섹션 초기화: ${pageKey}`, newPageSections);
     }
+  };
+
+  // 섹션 업데이트 함수
+  const updateSectionData = (sectionId: string, sectionPage: string) => {
+    const pageSection = PAGE_SECTIONS[sectionPage]?.find(
+      (section) => section.id === sectionId
+    );
+
+    if (!pageSection) return;
+
+    console.log(`📍 섹션 업데이트: ${sectionId} (페이지: ${sectionPage})`);
+
+    setAllPageSections((prev) => {
+      const currentPageData = prev[sectionPage] || {};
+      const currentSectionData = currentPageData[sectionId] || {
+        ...pageSection,
+        viewed: false,
+        viewTime: 0,
+        lastViewTime: 0,
+      };
+
+      return {
+        ...prev,
+        [sectionPage]: {
+          ...currentPageData,
+          [sectionId]: {
+            ...currentSectionData,
+            viewed: true,
+            viewTime: currentSectionData.viewTime + 0.1,
+            lastViewTime: Date.now(),
+          },
+        },
+      };
+    });
+  };
+
+  // 시선 데이터 처리 함수
+  const handleGazeData = (data: GazeData) => {
+    console.log("👁️ 시선 데이터 수신:", data);
+    setLastDataTime(Date.now());
+
+    // 페이지 변경 처리
+    if (data.currentPage && data.currentPage !== currentPage) {
+      setCurrentPage(data.currentPage);
+    }
+
+    // 섹션 데이터 처리
+    if (data.sectionId) {
+      setLastActiveSection(data.sectionId);
+
+      const sectionPage = findPageBySection(data.sectionId);
+      if (!sectionPage) {
+        console.log(
+          `❌ 섹션 ID ${data.sectionId}에 해당하는 페이지를 찾을 수 없음`
+        );
+        return;
+      }
+      updateSectionData(data.sectionId, sectionPage);
+    }
+  };
+
+  // 페이지 변경 처리 함수
+  const handlePageChange = (data: PageChangeData) => {
+    setCurrentPage(data.currentPage);
+    setLastDataTime(Date.now());
+  };
+
+  // 연결 상태 처리 함수들
+  const handleConnect = () => {
+    setConnectionStatus("connected");
+    console.log("✅ WebSocket 연결됨");
+  };
+
+  const handleDisconnect = () => {
+    setConnectionStatus("disconnected");
+    console.log("❌ WebSocket 연결 끊김");
+  };
+
+  const handleReconnect = () => {
+    websocketService.connect();
+  };
+
+  // 활동 상태 체크 함수
+  const checkCustomerActivity = () => {
+    const now = Date.now();
+    const timeSinceLastData = (now - lastDataTime) / 1000;
+    setIsCustomerActive(timeSinceLastData < 10);
+  };
+
+  // 전체 진행률 계산 함수
+  const calculateAllPagesProgress = () => {
+    Object.keys(PAGE_SECTIONS).forEach((pageKey) => {
+      const pageSections = PAGE_SECTIONS[pageKey];
+      const pageStatus = allPageSections[pageKey] || {};
+      const progress = calculatePageProgress(pageSections, pageStatus);
+
+      setPageProgress((prev) => ({
+        ...prev,
+        [pageKey]: progress,
+      }));
+    });
+  };
+
+  // 페이지가 변경될 때 해당 페이지의 섹션 초기화
+  useEffect(() => {
+    initializeCurrentPageSections(currentPage);
   }, [currentPage, allPageSections]);
 
   // 고객 활동 상태 모니터링
   useEffect(() => {
-    const checkActivity = setInterval(() => {
-      const now = Date.now();
-      const timeSinceLastData = (now - lastDataTime) / 1000;
-
-      if (timeSinceLastData >= 3) {
-        setIsCustomerActive(false);
-      } else {
-        setIsCustomerActive(true);
-      }
-    }, 1000);
-
+    const checkActivity = setInterval(checkCustomerActivity, 1000);
     return () => clearInterval(checkActivity);
   }, [lastDataTime]);
 
+  // 모든 페이지의 진행률 계산
   useEffect(() => {
-    // WebSocket 연결
-    websocketService.connect();
+    calculateAllPagesProgress();
+  }, [allPageSections]);
 
-    // 연결 상태 리스너
-    websocketService.onConnect(() => {
-      setConnectionStatus("connected");
-      console.log("✅ WebSocket 연결됨");
-    });
-
-    websocketService.onDisconnect(() => {
-      setConnectionStatus("disconnected");
-      console.log("❌ WebSocket 연결 끊김");
-    });
-
-    // 시선 데이터 리스너
-    websocketService.onGazeData((data: GazeData) => {
-      console.log("👁️ 시선 데이터 수신:", data);
-      setLastDataTime(Date.now());
-
-      if (data.currentPage && data.currentPage !== currentPage) {
-        console.log(`📄 페이지 변경: ${currentPage} → ${data.currentPage}`);
-        setCurrentPage(data.currentPage);
-      }
-
-      if (data.sectionId) {
-        setLastActiveSection(data.sectionId);
-
-        const sectionPage = findPageBySection(data.sectionId!);
-        if (sectionPage) {
-          const pageSection = PAGE_SECTIONS[sectionPage]?.find(
-            (section) => section.id === data.sectionId
-          );
-
-          if (pageSection) {
-            console.log(
-              `📍 섹션 업데이트: ${data.sectionId} (페이지: ${sectionPage})`
-            );
-
-            setAllPageSections((prev) => {
-              const currentPageData = prev[sectionPage] || {};
-              const currentSectionData = currentPageData[data.sectionId!] || {
-                ...pageSection,
-                viewed: false,
-                viewTime: 0,
-                lastViewTime: 0,
-              };
-
-              return {
-                ...prev,
-                [sectionPage]: {
-                  ...currentPageData,
-                  [data.sectionId!]: {
-                    ...currentSectionData,
-                    viewed: true,
-                    viewTime: currentSectionData.viewTime + 0.1,
-                    lastViewTime: Date.now(),
-                  },
-                },
-              };
-            });
-          }
-        } else {
-          console.warn(`⚠️ 존재하지 않는 섹션: ${data.sectionId}`);
-        }
-      }
-    });
-
-    // 페이지 변경 리스너
-    websocketService.onPageChange((data: PageChangeData) => {
-      console.log(`📄 페이지 변경 수신: ${data.currentPage}`);
-      setCurrentPage(data.currentPage);
-      setLastDataTime(Date.now());
-    });
+  // WebSocket 연결 및 리스너 설정
+  useEffect(() => {
+    // 리스너 설정
+    websocketService.onConnect(handleConnect);
+    websocketService.onDisconnect(handleDisconnect);
+    websocketService.onGazeData(handleGazeData);
+    websocketService.onPageChange(handlePageChange);
 
     return () => {
       websocketService.disconnect();
     };
-  }, []); // 의존성 배열을 빈 배열로 변경
-
-  // 모든 페이지의 진행률 계산
-  useEffect(() => {
-    Object.keys(PAGE_SECTIONS).forEach((pageKey) => {
-      const pageSections = PAGE_SECTIONS[pageKey];
-      const pageStatus = allPageSections[pageKey] || {};
-
-      if (pageSections.length > 0) {
-        const progress =
-          pageSections.reduce((acc, section) => {
-            const sectionData = pageStatus[section.id];
-            const sectionProgress = sectionData
-              ? Math.min(
-                  (sectionData.viewTime / sectionData.required) * 100,
-                  100
-                )
-              : 0;
-            return acc + sectionProgress;
-          }, 0) / pageSections.length;
-
-        setPageProgress((prev) => ({
-          ...prev,
-          [pageKey]: progress,
-        }));
-      }
-    });
-  }, [allPageSections]);
+  }, []);
 
   // 오버레이 표시 조건
   const showOverlay = connectionStatus === "disconnected" || !isCustomerActive;
@@ -200,7 +192,7 @@ export default function EmployeeView() {
       <StatusOverlay
         showOverlay={showOverlay}
         connectionStatus={connectionStatus}
-        onReconnect={() => websocketService.connect()}
+        onReconnect={handleReconnect}
       />
 
       <EmployeeHeader
@@ -220,6 +212,7 @@ export default function EmployeeView() {
           sectionStatus={sectionStatus}
           lastActiveSection={lastActiveSection}
         />
+
         <OverallProgress
           pageNames={PAGE_NAMES}
           pageProgress={pageProgress}
@@ -229,13 +222,3 @@ export default function EmployeeView() {
     </div>
   );
 }
-
-// 섹션이 속한 페이지를 찾는 헬퍼 함수
-const findPageBySection = (sectionId: string): string | null => {
-  for (const [pageKey, sections] of Object.entries(PAGE_SECTIONS)) {
-    if (sections.some((section) => section.id === sectionId)) {
-      return pageKey;
-    }
-  }
-  return null;
-};
