@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type RefObject } from "react";
 import { useNavigate } from "react-router-dom";
-import { generateShuffledPoints } from "../util/utilFunction";
+import { generateShuffledPoints } from "../../util/utilFunction";
 
 // webgazer 글로벌 변수 선언
 declare global {
