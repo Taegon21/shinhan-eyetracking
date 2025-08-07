@@ -2,19 +2,32 @@
 export interface GazeData {
   x: number;
   y: number;
-  ts: number;
+  timestamp: number;
   sectionId?: string | null;
+  currentPage?: string;
+}
+
+export interface PageChangeData {
+  currentPage: string;
+  timestamp: number;
 }
 
 export interface WebSocketMessage {
-  type: "gaze" | "status" | "error";
-  data: GazeData | string;
+  type: "gazeData" | "pageChange" | "gaze" | "status" | "error";
+  data: GazeData | PageChangeData | string;
 }
 
 class WebSocketService {
   private socket: WebSocket | null = null;
   private reconnectAttempts = 0;
   private maxReconnectAttempts = 5;
+
+  // 콜백 함수들을 private 속성으로 정의
+  private gazeCallback?: (data: GazeData) => void;
+  private pageChangeCallback?: (data: PageChangeData) => void;
+  private connectCallback?: () => void;
+  private disconnectCallback?: () => void;
+  private errorCallback?: (error: string) => void;
 
   connect() {
     try {
@@ -27,63 +40,92 @@ class WebSocketService {
       this.socket.onopen = () => {
         console.log("✅ WebSocket 연결됨");
         this.reconnectAttempts = 0;
+        if (this.connectCallback) {
+          this.connectCallback();
+        }
       };
 
       this.socket.onclose = () => {
         console.log("❌ WebSocket 연결 종료");
+        if (this.disconnectCallback) {
+          this.disconnectCallback();
+        }
         this.attemptReconnect();
       };
 
       this.socket.onerror = (error) => {
         console.error("WebSocket 에러:", error);
       };
+
+      // 메시지 핸들러 설정
+      this.socket.onmessage = this.handleMessage;
     } catch (error) {
       console.error("WebSocket 연결 실패:", error);
     }
   }
 
-  sendGazeData(x: number, y: number, sectionId?: string | null) {
+  // 연결 상태 리스너
+  onConnect(callback: () => void) {
+    this.connectCallback = callback;
+  }
+
+  onDisconnect(callback: () => void) {
+    this.disconnectCallback = callback;
+  }
+
+  // 페이지 변경 데이터 전송
+  sendPageChange(currentPage: string) {
     if (this.socket && this.socket.readyState === WebSocket.OPEN) {
-      const data: GazeData = {
+      const pageData: PageChangeData = {
+        currentPage,
+        timestamp: Date.now(),
+      };
+      this.socket.send(
+        JSON.stringify({
+          type: "pageChange",
+          data: pageData,
+        })
+      );
+    }
+  }
+
+  // 시선 데이터 전송 시 현재 페이지 정보 전송
+  sendGazeData(
+    x: number,
+    y: number,
+    sectionId?: string | null,
+    currentPage?: string
+  ) {
+    if (this.socket && this.socket.readyState === WebSocket.OPEN) {
+      const gazeData: GazeData = {
         x,
         y,
-        ts: Date.now(),
         sectionId,
+        currentPage,
+        timestamp: Date.now(),
       };
-      this.socket.send(JSON.stringify(data));
+      this.socket.send(
+        JSON.stringify({
+          type: "gazeData",
+          data: gazeData,
+        })
+      );
     }
   }
 
-  // any 대신 명확한 타입 사용
+  // 시선 데이터 리스너
   onGazeData(callback: (data: GazeData) => void) {
-    if (this.socket) {
-      this.socket.onmessage = (event: MessageEvent) => {
-        try {
-          const message: WebSocketMessage = JSON.parse(event.data);
-          if (message.type === "gaze" && typeof message.data === "object") {
-            callback(message.data as GazeData);
-          }
-        } catch (error) {
-          console.error("메시지 파싱 실패:", error);
-        }
-      };
-    }
+    this.gazeCallback = callback;
   }
 
-  // 에러 핸들링용 메서드 추가
+  // 페이지 변경 리스너
+  onPageChange(callback: (data: PageChangeData) => void) {
+    this.pageChangeCallback = callback;
+  }
+
+  // 에러 핸들링용 메서드
   onError(callback: (error: string) => void) {
-    if (this.socket) {
-      this.socket.onmessage = (event: MessageEvent) => {
-        try {
-          const message: WebSocketMessage = JSON.parse(event.data);
-          if (message.type === "error" && typeof message.data === "string") {
-            callback(message.data);
-          }
-        } catch (error) {
-          console.error("메시지 파싱 실패:", error);
-        }
-      };
-    }
+    this.errorCallback = callback;
   }
 
   private attemptReconnect() {
@@ -104,6 +146,40 @@ class WebSocketService {
       this.socket = null;
     }
   }
+
+  // 메시지 핸들러
+  // 메시지 타입에 따라 적절한 콜백 호출
+  private handleMessage = (event: MessageEvent) => {
+    try {
+      const message: WebSocketMessage = JSON.parse(event.data);
+
+      switch (message.type) {
+        case "gazeData":
+        case "gaze":
+          if (this.gazeCallback && typeof message.data === "object") {
+            this.gazeCallback(message.data as GazeData);
+          }
+          break;
+
+        case "pageChange":
+          if (this.pageChangeCallback && typeof message.data === "object") {
+            this.pageChangeCallback(message.data as PageChangeData);
+          }
+          break;
+
+        case "error":
+          if (this.errorCallback && typeof message.data === "string") {
+            this.errorCallback(message.data);
+          }
+          break;
+
+        default:
+          console.warn("알 수 없는 메시지 타입:", message.type);
+      }
+    } catch (error) {
+      console.error("WebSocket 메시지 파싱 오류:", error);
+    }
+  };
 }
 
 export const websocketService = new WebSocketService();
