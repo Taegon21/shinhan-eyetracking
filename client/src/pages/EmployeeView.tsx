@@ -1,5 +1,5 @@
 /* eslint-disable react-hooks/exhaustive-deps */
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   websocketService,
   type GazeData,
@@ -12,12 +12,14 @@ import {
   initializePageSections,
   calculatePageProgress,
 } from "../util/utilFunction";
-
 import StatusOverlay from "../component/employee/StatusOverlay";
 import EmployeeHeader from "../component/employee/EmployeeHeader";
 import CurrentPageStatus from "../component/employee/CurrentPageStatus";
 import OverallProgress from "../component/employee/OverallProgress";
 import SectionProgress from "../component/employee/SectionProgress";
+
+// 비활성 상태 판정: 3초간 데이터 없으면 비활성
+const INACTIVE_THRESHOLD_MS = 3000;
 
 export default function EmployeeView() {
   const [currentPage, setCurrentPage] = useState<string>("productJoin");
@@ -36,8 +38,7 @@ export default function EmployeeView() {
   // 고객 활동 상태 추가
   const [isCustomerActive, setIsCustomerActive] = useState(true);
   const [lastDataTime, setLastDataTime] = useState<number>(Date.now());
-
-  // 현재 페이지의 섹션 상태 계산 (computed value)
+  const lastDataRef = useRef(Date.now());
   const sectionStatus = allPageSections[currentPage] || {};
 
   // 페이지 섹션 초기화 함수
@@ -90,7 +91,6 @@ export default function EmployeeView() {
 
   // 시선 데이터 처리 함수
   const handleGazeData = (data: GazeData) => {
-    console.log("👁️ 시선 데이터 수신:", data);
     setLastDataTime(Date.now());
 
     // 페이지 변경 처리
@@ -104,9 +104,6 @@ export default function EmployeeView() {
 
       const sectionPage = findPageBySection(data.sectionId);
       if (!sectionPage) {
-        console.log(
-          `❌ 섹션 ID ${data.sectionId}에 해당하는 페이지를 찾을 수 없음`
-        );
         return;
       }
       updateSectionData(data.sectionId, sectionPage);
@@ -130,17 +127,6 @@ export default function EmployeeView() {
     console.log("❌ WebSocket 연결 끊김");
   };
 
-  const handleReconnect = () => {
-    websocketService.connect();
-  };
-
-  // 활동 상태 체크 함수
-  const checkCustomerActivity = () => {
-    const now = Date.now();
-    const timeSinceLastData = (now - lastDataTime) / 1000;
-    setIsCustomerActive(timeSinceLastData < 10);
-  };
-
   // 전체 진행률 계산 함수
   const calculateAllPagesProgress = () => {
     Object.keys(PAGE_SECTIONS).forEach((pageKey) => {
@@ -155,21 +141,28 @@ export default function EmployeeView() {
     });
   };
 
+  useEffect(() => {
+    lastDataRef.current = lastDataTime;
+  }, [lastDataTime]);
+
   // 페이지가 변경될 때 해당 페이지의 섹션 초기화
   useEffect(() => {
     initializeCurrentPageSections(currentPage);
   }, [currentPage, allPageSections]);
 
-  // 고객 활동 상태 모니터링
-  useEffect(() => {
-    const checkActivity = setInterval(checkCustomerActivity, 1000);
-    return () => clearInterval(checkActivity);
-  }, [lastDataTime]);
-
   // 모든 페이지의 진행률 계산
   useEffect(() => {
     calculateAllPagesProgress();
   }, [allPageSections]);
+
+  // ✅ 고객 활동 상태 모니터링 - 한 번만 생성되는 인터벌
+  useEffect(() => {
+    const id = setInterval(() => {
+      const now = Date.now();
+      setIsCustomerActive(now - lastDataRef.current < INACTIVE_THRESHOLD_MS);
+    }, 1000);
+    return () => clearInterval(id);
+  }, []);
 
   // WebSocket 연결 및 리스너 설정
   useEffect(() => {
@@ -178,21 +171,22 @@ export default function EmployeeView() {
     websocketService.onDisconnect(handleDisconnect);
     websocketService.onGazeData(handleGazeData);
     websocketService.onPageChange(handlePageChange);
-
-    return () => {
-      websocketService.disconnect();
-    };
   }, []);
 
   // 오버레이 표시 조건
   const showOverlay = connectionStatus === "disconnected" || !isCustomerActive;
+
+  console.log("👁️ 오버레이 표시:", showOverlay);
+  console.log("고객상태", isCustomerActive);
 
   return (
     <div className="w-full h-screen bg-gray-100 relative">
       <StatusOverlay
         showOverlay={showOverlay}
         connectionStatus={connectionStatus}
-        onReconnect={handleReconnect}
+        onReconnect={() => {
+          websocketService.connect();
+        }}
       />
 
       <EmployeeHeader

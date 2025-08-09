@@ -96,7 +96,6 @@ func (ws *WebSocketService) BroadcastToClients(messageType string, data interfac
 
     // 브로드캐스트 결과 로깅
     if messageType == "gazeData" {
-        // 시선 데이터는 너무 많으니 간단히
         if failedCount > 0 {
             log.Printf("👁️ 시선 데이터 전송: 성공 %d, 실패 %d", successCount, failedCount)
         }
@@ -105,7 +104,6 @@ func (ws *WebSocketService) BroadcastToClients(messageType string, data interfac
         log.Printf("📢 브로드캐스트 [%s]: 성공 %d, 실패 %d, 총 클라이언트 %d", 
             messageType, successCount, failedCount, clientCount)
         
-        // 데이터 내용도 로깅 (페이지 변경의 경우)
         if messageType == "pageChange" {
             if jsonData, err := json.Marshal(data); err == nil {
                 log.Printf("📄 전송된 페이지 변경 데이터: %s", string(jsonData))

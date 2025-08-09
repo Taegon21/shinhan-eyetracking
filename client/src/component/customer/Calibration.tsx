@@ -157,18 +157,6 @@ export default function CalibrationView({ onComplete }: CalibrationViewProps) {
             고객의 시선을 추적하기 위한 학습 중입니다.
           </p>
           <p className="text-gray-600">파란점을 3번씩 클릭해주세요.</p>
-          <div>
-            <div className="text-gray-600 text-sm mb-2">진행률</div>
-            <div className="w-32 bg-gray-200 rounded-full h-2">
-              <div
-                className="bg-gradient-to-r from-blue-800 to-purple-500 h-2 rounded-full transition-all duration-300"
-                style={{ width: `${(current / points.length) * 100}%` }}
-              ></div>
-            </div>
-            <div className="text-xs text-gray-500 mt-1">
-              {current} / {points.length} 완료
-            </div>
-          </div>
         </div>
       )}
 
