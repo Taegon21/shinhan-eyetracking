@@ -71,7 +71,7 @@ export default function CalibrationView({ onComplete }: CalibrationViewProps) {
   const [points, setPoints] = useState<Point[]>([]);
   const [current, setCurrent] = useState(0);
   const [clickCount, setClickCount] = useState(0);
-  const [mode, setMode] = useState<"calibration" | "tracking">("tracking");
+  const [mode, setMode] = useState<"calibration" | "tracking">("calibration");
 
   const trackerRef = useRef<HTMLDivElement>(null);
   const statusRef = useRef<HTMLDivElement>(null);

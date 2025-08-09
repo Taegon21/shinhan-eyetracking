@@ -1,3 +1,4 @@
+/* eslint-disable react-hooks/exhaustive-deps */
 import { useEffect, useRef, useState } from "react";
 import { websocketService, type GazeData } from "../util/WebSocketService";
 
@@ -49,13 +50,10 @@ export default function CustomerView() {
 
       webgazerUtils.startGazeTracking((data: GazeData) => {
         if (data) {
-          // 트래커 위치 업데이트
           domUtils.updateTrackerPosition(trackerRef.current, data.x, data.y);
 
-          // 섹션 ID 추출
           const sectionId = domUtils.getSectionIdFromPoint(data.x, data.y);
 
-          // 현재 페이지 정보도 함께 전송
           websocketService.sendGazeData(data.x, data.y, sectionId, currentPage);
         }
       });
@@ -87,7 +85,6 @@ export default function CustomerView() {
     }
 
     setCurrentPage(nextPage);
-    // 페이지 변경을 WebSocket으로 전송
     websocketService.sendPageChange(nextPage);
   };
 
@@ -101,21 +98,17 @@ export default function CustomerView() {
     }
 
     setCurrentPage(prevPage);
-    // 페이지 변경을 WebSocket으로 전송
     websocketService.sendPageChange(prevPage);
   };
 
-  // 페이지가 변경될 때마다 WebSocket으로 알림
   useEffect(() => {
     websocketService.sendPageChange(currentPage);
   }, [currentPage]);
 
-  // Calibration이 필요한 경우
   if (calibrationStatus === "needed") {
     return <Calibration onComplete={handleCalibrationComplete} />;
   }
 
-  // 상태 확인 중
   if (calibrationStatus === "checking") {
     return <SystemChecking />;
   }
