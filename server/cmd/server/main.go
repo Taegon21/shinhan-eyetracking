@@ -45,12 +45,6 @@ func main() {
 	log.Printf("✅ 서버 실행: https://www.shinhan-eyetracking.store:443")
 	log.Fatal(http.ListenAndServeTLS(":443", certFile, keyFile, nil))
 
-
-	//  // 로컬 테스트용 self-signed 인증서 경로
-	//  certFile2 := "/Users/taegeonkim/ssl/localhost-cert.pem"
-	//  keyFile2 := "/Users/taegeonkim/ssl/localhost-key.pem"
-
-	// // HTTPS 서버 실행 (443 포트)
-	// log.Printf("✅ 서버 실행: https://localhost:443")
-	// log.Fatal(http.ListenAndServeTLS(":443", certFile2, keyFile2, nil))
+	//로컬에서 실행
+	// log.Fatal(http.ListenAndServe(":8080", nil))
 }

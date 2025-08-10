@@ -29,7 +29,8 @@ func (ws *WebSocketService) AddClient(conn *websocket.Conn) {
 
     // 클라이언트 정보 로깅
     remoteAddr := conn.RemoteAddr().String()
-    
+    log.Printf("🟢 새 클라이언트 연결: %s (총 %d개 클라이언트)", remoteAddr, clientCount)
+
     // 연결 상태를 다른 클라이언트들에게 알림
     ws.broadcastClientCount()
 }
@@ -63,6 +64,7 @@ func (ws *WebSocketService) BroadcastToClients(messageType string, data interfac
     ws.clientsMu.RUnlock()
 
     if clientCount == 0 {
+        log.Printf("📭 클라이언트가 없어서 브로드캐스트 스킵: %s", messageType)
         return
     }
 
