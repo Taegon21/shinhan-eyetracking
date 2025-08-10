@@ -8,11 +8,9 @@ import Home from "./pages/Home";
 
 export default function App() {
   useEffect(() => {
-    console.log("🔌 WebSocket 연결 시작");
     websocketService.connect();
 
     return () => {
-      console.log("🔌 WebSocket 연결 종료");
       websocketService.disconnect();
     };
   }, []);

@@ -60,7 +60,6 @@ func main() {
 
         var data GazeData
         if err := json.Unmarshal(m.Value, &data); err != nil {
-            log.Printf("⚠️ JSON 파싱 실패: %v", err)
             continue
         }
 

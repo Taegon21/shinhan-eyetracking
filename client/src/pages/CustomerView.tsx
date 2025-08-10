@@ -29,7 +29,6 @@ export default function CustomerView() {
     // WebGazer 상태 확인
     const checkCalibration = () => {
       if (webgazerUtils.isWebGazerReady()) {
-        console.log("✅ WebGazer 이미 준비됨 - 트래킹 시작");
         startTracking();
       } else {
         console.log("❌ Calibration 필요");

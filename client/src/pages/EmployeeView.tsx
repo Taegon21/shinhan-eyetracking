@@ -47,8 +47,6 @@ export default function EmployeeView() {
         ...prev,
         [pageKey]: newPageSections,
       }));
-
-      console.log(`🔄 페이지 섹션 초기화: ${pageKey}`, newPageSections);
     }
   };
 
@@ -58,8 +56,6 @@ export default function EmployeeView() {
     );
 
     if (!pageSection) return;
-
-    console.log(`📍 섹션 업데이트: ${sectionId} (페이지: ${sectionPage})`);
 
     setAllPageSections((prev) => {
       const currentPageData = prev[sectionPage] || {};
@@ -88,8 +84,6 @@ export default function EmployeeView() {
   const handleGazeData = (data: GazeData) => {
     setLastDataTime(Date.now());
 
-    console.log("👁️ 시선 데이터 수신:", data);
-
     if (data.currentPage && data.currentPage !== currentPage) {
       setCurrentPage(data.currentPage);
     }
@@ -112,12 +106,10 @@ export default function EmployeeView() {
 
   const handleConnect = () => {
     setConnectionStatus("connected");
-    console.log("✅ WebSocket 연결됨");
   };
 
   const handleDisconnect = () => {
     setConnectionStatus("disconnected");
-    console.log("❌ WebSocket 연결 끊김");
   };
 
   const calculateAllPagesProgress = () => {
@@ -162,9 +154,6 @@ export default function EmployeeView() {
   }, []);
 
   const showOverlay = connectionStatus === "disconnected" || !isCustomerActive;
-
-  console.log("👁️ 오버레이 표시:", showOverlay);
-  console.log("고객상태", isCustomerActive);
 
   return (
     <div className="w-full h-screen bg-gray-100 relative">

@@ -46,7 +46,7 @@ class WebSocketService {
       };
 
       this.socket.onclose = (event) => {
-        console.log("❌ WebSocket 연결 종료");
+        console.log("❌ WebSocket 연결 종료", event);
         if (this.disconnectCallback) {
           this.disconnectCallback();
         }
