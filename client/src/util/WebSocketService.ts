@@ -45,22 +45,34 @@ class WebSocketService {
         }
       };
 
-      this.socket.onclose = () => {
+      this.socket.onclose = (event) => {
         console.log("❌ WebSocket 연결 종료");
         if (this.disconnectCallback) {
           this.disconnectCallback();
+        }
+        // 에러 콜백 호출 추가
+        if (this.errorCallback) {
+          this.errorCallback("WebSocket 연결 종료");
         }
         this.attemptReconnect();
       };
 
       this.socket.onerror = (error) => {
         console.error("WebSocket 에러:", error);
+        // 에러 콜백 호출 추가
+        if (this.errorCallback) {
+          this.errorCallback("WebSocket 에러 발생");
+        }
       };
 
       // 메시지 핸들러 설정
       this.socket.onmessage = this.handleMessage;
     } catch (error) {
       console.error("WebSocket 연결 실패:", error);
+      // 에러 콜백 호출 추가
+      if (this.errorCallback) {
+        this.errorCallback("WebSocket 연결 실패");
+      }
     }
   }
 

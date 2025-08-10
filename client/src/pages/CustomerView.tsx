@@ -26,8 +26,6 @@ export default function CustomerView() {
   const [currentPage, setCurrentPage] = useState<PageType>("productJoin");
 
   useEffect(() => {
-    // WebSocket 연결
-
     // WebGazer 상태 확인
     const checkCalibration = () => {
       if (webgazerUtils.isWebGazerReady()) {
@@ -38,6 +36,12 @@ export default function CustomerView() {
         setCalibrationStatus("needed");
       }
     };
+
+    // WebSocket 연결
+    websocketService.onError?.(() => {
+      console.error("WebSocket 연결 오류 발생");
+      setCalibrationStatus("checking");
+    });
 
     const timer = setTimeout(checkCalibration, 500);
     return () => clearTimeout(timer);
@@ -129,7 +133,7 @@ export default function CustomerView() {
       {/* 상태 표시 */}
       <StatusPanel isTracking={isTracking} onRecalibrate={handleRecalibrate} />
 
-      <div className="w-full max-w-[500px] mx-auto h-screen flex flex-col">
+      <div className="w-full max-w-[700px] mx-auto h-screen flex flex-col">
         {/* 헤더 */}
         <div
           data-section="header"
@@ -138,7 +142,7 @@ export default function CustomerView() {
         >
           <div className="text-center">
             <h1 className="text-lg font-bold">{pageData.header.title}</h1>
-            <p className="text-sm">{pageData.header.subtitle}</p>
+            <p className="text-xl">{pageData.header.subtitle}</p>
           </div>
         </div>
 

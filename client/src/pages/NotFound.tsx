@@ -16,6 +16,12 @@ export default function NotFound() {
 
         <div className="space-y-4 w-full flex flex-col">
           <Link
+            to="/"
+            className="w-full bg-gray-300 hover:bg-gray-200 text-gray-700 font-medium py-3 px-4 rounded-lg transition-colors duration-200"
+          >
+            홈으로 이동하기
+          </Link>
+          <Link
             to="/customer"
             className="w-full bg-gray-300 hover:bg-gray-200 text-gray-700 font-medium py-3 px-4 rounded-lg transition-colors duration-200"
           >

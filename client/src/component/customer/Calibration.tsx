@@ -150,13 +150,14 @@ export default function CalibrationView({ onComplete }: CalibrationViewProps) {
       {/* 헤더 */}
       {mode === "calibration" && (
         <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 bg-white bg-opacity-90 backdrop-blur-sm p-4 rounded-2xl shadow-lg border border-gray-200 z-50">
-          <h1 className="text-2xl font-bold text-blue-300 mb-2">
+          <h1 className="text-2xl font-bold text-blue-300 mb-4">
             👁️ Eye Tracking 캘리브레이션
           </h1>
-          <p className="text-gray-600">
+          {/* // text중앙으로 */}
+          <p className="text-gray-600 text-center">
             고객의 시선을 추적하기 위한 학습 중입니다.
           </p>
-          <p className="text-gray-600">파란점을 3번씩 클릭해주세요.</p>
+          <p className="text-gray-600 text-center">파란점을 3번씩 클릭해주세요.</p>
         </div>
       )}
 
