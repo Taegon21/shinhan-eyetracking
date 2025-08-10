@@ -44,10 +44,13 @@ services:
       dockerfile: Dockerfile.main
     container_name: main-server
     ports:
-      - "8080:8080"
+      - "443:443"
     environment:
       - DB_HOST=postgres
       - KAFKA_BROKERS=kafka:9092
+    volumes:
+      - /etc/letsencrypt/live/www.shinhan-eyetracking.store/fullchain.pem:/etc/letsencrypt/live/www.shinhan-eyetracking.store/fullchain.pem:ro
+      - /etc/letsencrypt/live/www.shinhan-eyetracking.store/privkey.pem:/etc/letsencrypt/live/www.shinhan-eyetracking.store/privkey.pem:ro
     depends_on:
       - postgres
       - kafka

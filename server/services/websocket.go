@@ -5,9 +5,7 @@ import (
     "log"
     "sync"
     "time"
-
     "shinhan-eyetracking/server/models"
-
     "github.com/gorilla/websocket"
 )
 

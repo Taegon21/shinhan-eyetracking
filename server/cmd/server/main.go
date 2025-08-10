@@ -4,7 +4,6 @@ package main
 import (
 	"log"
 	"net/http"
-
 	"shinhan-eyetracking/server/config"
 	"shinhan-eyetracking/server/database"
 	"shinhan-eyetracking/server/handlers"
@@ -39,6 +38,19 @@ func main() {
 	http.HandleFunc("/clear", apiHandler.ClearDataHandler)
 	http.HandleFunc("/page-status", apiHandler.PageStatusHandler)
 
-	log.Printf("✅ 서버 실행: http://localhost:%s", cfg.Port)
-	log.Fatal(http.ListenAndServe(":"+cfg.Port, nil))
+	certFile := "/etc/letsencrypt/live/www.shinhan-eyetracking.store/fullchain.pem"
+	keyFile := "/etc/letsencrypt/live/www.shinhan-eyetracking.store/privkey.pem"
+
+		// HTTPS 서버 실행 (443 포트)
+	log.Printf("✅ 서버 실행: https://www.shinhan-eyetracking.store:443")
+	log.Fatal(http.ListenAndServeTLS(":443", certFile, keyFile, nil))
+
+
+	//  // 로컬 테스트용 self-signed 인증서 경로
+	//  certFile2 := "/Users/taegeonkim/ssl/localhost-cert.pem"
+	//  keyFile2 := "/Users/taegeonkim/ssl/localhost-key.pem"
+
+	// // HTTPS 서버 실행 (443 포트)
+	// log.Printf("✅ 서버 실행: https://localhost:443")
+	// log.Fatal(http.ListenAndServeTLS(":443", certFile2, keyFile2, nil))
 }
