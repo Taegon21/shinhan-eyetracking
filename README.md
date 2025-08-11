@@ -78,8 +78,8 @@
 
 ## 🔗 프로젝트 링크
 
-- 고객 페이지: https://www.shinhan-eyetracking.store/customer
-- 관리자 페이지: https://www.shinhan-eyetracking.store/employee
+- 고객 페이지: https://shinhan-eyetracking.vercel.app/customer
+- 관리자 페이지: https://shinhan-eyetracking.vercel.app/employee
   
 
 ## 🎥 시연 영상
